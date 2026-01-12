@@ -5,33 +5,31 @@
     --modal-bg: rgba(20, 20, 23, 0.85);
     --text-primary: #ffffff;
     --text-secondary: #888888;
-    --accent-color: #00d2ff; /* Electric Cyan */
+    --accent-color: #00d2ff; 
     --accent-glow: rgba(0, 210, 255, 0.4);
     --border-color: rgba(255, 255, 255, 0.1);
     --btn-hover-bg: rgba(0, 210, 255, 0.08);
     --danger-color: #ff4757;
+    --glass-bg: rgba(255, 255, 255, 0.03);
 
-    /* Grid Color */
     --grid-dot-color: rgba(255, 255, 255, 0.15);
-
-    /* Safe Areas */
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
-    --ease-out: cubic-bezier(0.215, 0.61, 0.355, 1);
+    --ease-out: cubic-bezier(0.23, 1, 0.32, 1); /* Smoother Apple-like easing */
 }
 
-/* --- LIGHT THEME OVERRIDES --- */
 body.light-mode {
     --bg-color: #f0f2f5;
     --surface-color: #ffffff;
     --modal-bg: rgba(255, 255, 255, 0.85);
     --text-primary: #1a1a1d;
     --text-secondary: #555555;
-    --accent-color: #007aff; /* Deep Blue for light mode readability */
+    --accent-color: #007aff; 
     --accent-glow: rgba(0, 122, 255, 0.2);
     --border-color: rgba(0, 0, 0, 0.1);
     --btn-hover-bg: rgba(0, 122, 255, 0.08);
     --grid-dot-color: rgba(0, 0, 0, 0.1);
+    --glass-bg: rgba(255, 255, 255, 0.5);
 }
 
 /* GLOBAL RESET */
@@ -78,17 +76,22 @@ body {
     display: flex; flex-direction: column; align-items: center;
     animation: slide-up 0.8s var(--ease-out);
     z-index: 10;
+    transition: opacity 0.5s ease, transform 0.5s ease;
 }
-.menu-container.hidden { display: none; }
+.menu-container.hidden { 
+    opacity: 0; 
+    pointer-events: none; 
+    transform: translate(-50%, -40%);
+}
 
 .app-title { font-weight: 200; font-size: 3.5rem; letter-spacing: -2px; margin: 0; margin-bottom: 5px; }
 .app-subtitle { color: var(--text-secondary); font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 40px; }
 .action-buttons { display: flex; flex-direction: column; gap: 15px; width: 100%; }
 
-/* --- UNIFIED BUTTON STYLES --- */
+/* --- BUTTONS --- */
 .flux-btn {
     position: relative;
-    background: rgba(255, 255, 255, 0.03);
+    background: var(--glass-bg);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
     padding: 18px 24px;
@@ -100,47 +103,82 @@ body {
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
 }
-
 .flux-btn:hover {
     background: var(--btn-hover-bg);
     border-color: var(--accent-color);
     box-shadow: 0 0 25px var(--accent-glow);
     transform: translateY(-2px);
 }
-
 .flux-btn:active { transform: scale(0.96) translateY(0); }
-
-/* SVG Icon Styling */
 .icon-svg { width: 20px; height: 20px; stroke-width: 2px; }
 
-/* Danger Button */
-.flux-btn.danger-btn { border-color: rgba(255, 71, 87, 0.3); color: var(--danger-color); }
-.flux-btn.danger-btn:hover { 
-    background: rgba(255, 71, 87, 0.1); 
-    border-color: var(--danger-color);
-    box-shadow: 0 0 20px rgba(255, 71, 87, 0.3);
-}
-
-/* --- SETTINGS BUTTON (FIXED ROTATION) --- */
-.icon-btn.top-right {
+/* --- TOP NAVIGATION BAR (PIXEL-PERFECT PILL) --- */
+.top-nav {
     position: absolute; top: calc(var(--safe-top) + 20px); right: 20px;
-    background: transparent; border: none; cursor: pointer;
-    z-index: 20; 
-    /* Precise dimensions for perfect centering */
-    width: 44px; height: 44px; 
-    display: flex; justify-content: center; align-items: center;
-    border-radius: 50%; 
-    color: var(--text-primary); opacity: 0.7;
-    transition: opacity 0.3s ease;
+    z-index: 20;
+    display: flex; 
+    align-items: center;
+    justify-content: center; /* FORCES CENTER SYMMETRY */
+    background: var(--glass-bg);
+    backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color);
+    border-radius: 50px; 
+    padding: 4px; /* Symmetrical padding */
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+    transition: all 0.5s var(--ease-out);
+    gap: 0; /* No flex gaps to avoid phantom pixels */
+    overflow: hidden; /* Clips hidden home button perfectly */
 }
-.icon-btn.top-right .icon-wrapper {
-    display: flex; justify-content: center; align-items: center;
-    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy rotation */
-}
-.icon-btn.top-right .icon-svg { width: 24px; height: 24px; }
-.icon-btn.top-right:hover { opacity: 1; }
-.icon-btn.top-right:hover .icon-wrapper { transform: rotate(90deg); }
 
+.nav-separator {
+    width: 1px; height: 20px;
+    background: var(--border-color);
+    margin: 0 4px; /* Fixed spacing */
+    opacity: 0.5;
+    transition: opacity 0.3s, width 0.4s var(--ease-out), margin 0.4s var(--ease-out);
+    flex-shrink: 0;
+}
+
+/* Icon Buttons inside Nav */
+.icon-btn {
+    background: transparent; border: none; cursor: pointer;
+    width: 44px; height: 44px;
+    aspect-ratio: 1 / 1; 
+    display: flex; justify-content: center; align-items: center;
+    border-radius: 50%;
+    color: var(--text-primary); opacity: 0.7;
+    transition: all 0.3s ease;
+    flex-shrink: 0; 
+}
+.icon-btn:hover { opacity: 1; background: var(--btn-hover-bg); }
+.icon-btn .icon-svg { width: 24px; height: 24px; }
+
+/* Settings Rotation */
+.settings-btn:hover .icon-wrapper { transform: rotate(90deg); }
+.icon-wrapper { display: flex; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+
+/* Home Button Hiding Logic (HARD RESET) */
+.home-btn {
+    width: 44px;
+    opacity: 1;
+    overflow: hidden;
+    transition: width 0.5s var(--ease-out), opacity 0.3s, margin 0.5s var(--ease-out);
+}
+
+.home-btn.hidden {
+    width: 0 !important;
+    opacity: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: none;
+}
+
+/* SEPARATOR HIDING LOGIC */
+.home-btn.hidden + .nav-separator {
+    width: 0 !important;
+    margin: 0 !important;
+    opacity: 0 !important;
+}
 
 /* --- SETTINGS MODAL --- */
 .modal-overlay {
@@ -173,12 +211,11 @@ body {
 .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .description { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px; }
 
-/* --- COMMON TOGGLE WRAPPER --- */
+/* --- TOGGLES --- */
 .toggle-wrapper { position: relative; width: 60px; height: 30px; }
 .toggle-wrapper input { display: none; }
 
-/* --- 1. ECLIPSE TOGGLE (Dark Mode) --- */
-.eclipse-toggle {
+.eclipse-toggle, .grid-toggle-label {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background: #2a2a2e; border-radius: 30px; cursor: pointer;
     overflow: hidden; transition: background 0.5s ease;
@@ -188,59 +225,30 @@ body {
     position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
     background: #ffdb4d; border-radius: 50%;
     transition: transform 0.5s var(--ease-out), box-shadow 0.5s ease;
-    transform: translateX(0); 
 }
 .eclipse-moon {
     position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
-    background: #2a2a2e; /* Matches default sky */
-    border-radius: 50%; z-index: 2;
+    background: #2a2a2e; border-radius: 50%; z-index: 2;
     transform: translateX(8px);
     transition: transform 0.5s var(--ease-out), background 0.5s ease;
 }
 #theme-toggle:checked + .eclipse-toggle { background: #87ceeb; }
 #theme-toggle:checked + .eclipse-toggle .eclipse-moon { background: #87ceeb; transform: translateX(60px); }
 #theme-toggle:checked + .eclipse-toggle .eclipse-sun { transform: translateX(30px); box-shadow: 0 0 15px #ffdb4d; }
-#theme-toggle:not(:checked) + .eclipse-toggle .eclipse-sun { background: #d1d1d1; }
 
-/* --- 2. GRID TOGGLE (Animated Grid Background) --- */
-.grid-toggle-label {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    background: #2a2a2e; border-radius: 30px; cursor: pointer;
-    overflow: hidden; transition: background 0.3s ease;
-    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
-}
-
-/* The Grid Pattern Overlay */
 .grid-pattern {
     position: absolute; width: 100%; height: 100%;
-    background-image: 
-        linear-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
-    background-size: 8px 8px; /* Small technical grid */
-    opacity: 0; /* Hidden by default */
-    transition: opacity 0.3s ease;
+    background-image: linear-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
+    background-size: 8px 8px; opacity: 0; transition: opacity 0.3s ease;
 }
-
-/* The Knob */
 .grid-knob {
     position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
     background: #ffffff; border-radius: 50%;
-    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy move */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
-
-/* Grid Toggle Logic */
-#grid-toggle:checked + .grid-toggle-label {
-    background: var(--accent-color); /* Neon Blue bg */
-}
-
-#grid-toggle:checked + .grid-toggle-label .grid-pattern {
-    opacity: 0.4; /* Show the grid! */
-}
-
-#grid-toggle:checked + .grid-toggle-label .grid-knob {
-    transform: translateX(30px);
-}
+#grid-toggle:checked + .grid-toggle-label { background: var(--accent-color); }
+#grid-toggle:checked + .grid-toggle-label .grid-pattern { opacity: 0.4; }
+#grid-toggle:checked + .grid-toggle-label .grid-knob { transform: translateX(30px); }
 
 /* --- CANVAS --- */
 canvas { display: block; width: 100%; height: 100%; touch-action: none; }

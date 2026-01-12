@@ -15,6 +15,7 @@ class FluxApp {
             btnNew: document.getElementById('btn-new-board'),
             btnOpen: document.getElementById('btn-open-file'),
             btnSettings: document.getElementById('btn-settings-toggle'),
+            btnHome: document.getElementById('btn-home'), // NEW HOME BUTTON
             btnCloseSettings: document.getElementById('btn-close-settings'),
             btnHardReset: document.getElementById('btn-hard-reset'),
             
@@ -40,12 +41,11 @@ class FluxApp {
     async init() {
         console.log("Flux: Booting system...");
         
-        // Initialize Whiteboard Module (but keep hidden)
+        // Initialize Whiteboard Module
         if(typeof FluxWhiteboard !== 'undefined') {
             this.whiteboard = new FluxWhiteboard('flux-canvas');
         }
 
-        // Load saved settings from localStorage (Theme, Grid)
         this.loadSettings();
 
         // System simulated check
@@ -84,6 +84,9 @@ class FluxApp {
         // --- Navigation ---
         this.dom.btnNew.addEventListener('click', () => this.startNewBoard());
         
+        // HOME BUTTON LISTENER
+        this.dom.btnHome.addEventListener('click', () => this.returnToHome());
+
         // --- Settings Modal ---
         this.dom.btnSettings.addEventListener('click', () => {
             this.dom.settingsModal.classList.remove('hidden');
@@ -93,7 +96,6 @@ class FluxApp {
             this.dom.settingsModal.classList.add('hidden');
         });
 
-        // Close modal when clicking outside content
         this.dom.settingsModal.addEventListener('click', (e) => {
             if (e.target === this.dom.settingsModal) {
                 this.dom.settingsModal.classList.add('hidden');
@@ -101,8 +103,6 @@ class FluxApp {
         });
 
         // --- Toggle Features ---
-        
-        // 1. Theme Toggle (Eclipse Animation logic handled in CSS, we just need class)
         this.dom.themeToggle.addEventListener('change', (e) => {
             if (e.target.checked) {
                 document.body.classList.add('light-mode');
@@ -111,36 +111,47 @@ class FluxApp {
                 document.body.classList.remove('light-mode');
                 localStorage.setItem('flux-theme', 'dark');
             }
-            // Redraw grid to update dot color
             if(this.whiteboard) this.whiteboard.render();
         });
 
-        // 2. Grid Toggle
         this.dom.gridToggle.addEventListener('change', (e) => {
             const isEnabled = e.target.checked;
             localStorage.setItem('flux-grid', isEnabled);
             if(this.whiteboard) this.whiteboard.setGridEnabled(isEnabled);
         });
 
-        // 3. HARD RESET (Clear Cache & SW)
         this.dom.btnHardReset.addEventListener('click', () => this.hardResetApp());
     }
 
     startNewBoard() {
         console.log("Flux: Starting new board...");
         
-        // Animation: Fade out menu, Fade in Canvas
-        this.dom.menu.style.opacity = '0';
-        this.dom.menu.style.pointerEvents = 'none';
+        // 1. Hide Menu
+        this.dom.menu.classList.add('hidden');
         
-        setTimeout(() => {
-            this.dom.menu.classList.add('hidden');
-            this.dom.canvas.classList.remove('hidden');
-            this.state.boardActive = true;
-            
-            // Force a resize/render to ensure full screen
-            if(this.whiteboard) this.whiteboard.resize();
-        }, 300);
+        // 2. Show Canvas
+        this.dom.canvas.classList.remove('hidden');
+        this.state.boardActive = true;
+        
+        // 3. Show Home Button (Expand)
+        this.dom.btnHome.classList.remove('hidden');
+        
+        // 4. Update Canvas Size
+        if(this.whiteboard) this.whiteboard.resize();
+    }
+
+    returnToHome() {
+        console.log("Flux: Returning to home...");
+
+        // 1. Hide Canvas
+        this.dom.canvas.classList.add('hidden');
+        this.state.boardActive = false;
+
+        // 2. Hide Home Button (Collapse)
+        this.dom.btnHome.classList.add('hidden');
+
+        // 3. Show Menu
+        this.dom.menu.classList.remove('hidden');
     }
 
     async hardResetApp() {
@@ -148,7 +159,6 @@ class FluxApp {
 
         console.log("Flux: Initiating Hard Reset...");
 
-        // 1. Unregister Service Workers
         if ('serviceWorker' in navigator) {
             const registrations = await navigator.serviceWorker.getRegistrations();
             for (let registration of registrations) {
@@ -156,16 +166,12 @@ class FluxApp {
             }
         }
 
-        // 2. Delete all Caches
         if ('caches' in window) {
             const keys = await caches.keys();
             await Promise.all(keys.map(key => caches.delete(key)));
         }
 
-        // 3. Clear LocalStorage
         localStorage.clear();
-
-        // 4. Reload page (forces re-fetch from Vercel)
         window.location.reload();
     }
 }
