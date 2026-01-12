@@ -2,11 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8"/>
-    <!-- Viewport settings for perfect mobile scaling and preventing zoom -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
     <meta name="theme-color" content="#0f0f11"/>
     
-    <!-- iOS native app look & feel -->
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="Flux"/>
@@ -20,7 +18,7 @@
 </head>
 <body>
 
-    <!-- SPLASH SCREEN: Initial loading animation -->
+    <!-- SPLASH SCREEN -->
     <div id="splash-screen">
         <div class="flux-logo">
             <div class="flux-core"></div>
@@ -34,7 +32,11 @@
         
         <!-- SETTINGS BUTTON (Top Right) -->
         <button id="btn-settings-toggle" class="icon-btn top-right" aria-label="Settings">
-            ⚙️
+            <div class="icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                    <path d="M11 10.27 7 3.34"/><path d="m11 13.73-4 6.93"/><path d="M12 22v-2"/><path d="M12 2v2"/><path d="M14 12h8"/><path d="m17 20.66-1-1.73"/><path d="m17 3.34-1 1.73"/><path d="M2 12h2"/><path d="m20.66 17-1.73-1"/><path d="m20.66 7-1.73 1"/><path d="m3.34 17 1.73-1"/><path d="m3.34 7 1.73 1"/><circle cx="12" cy="12" r="2"/><circle cx="12" cy="12" r="8"/>
+                </svg>
+            </div>
         </button>
 
         <!-- HOME MENU -->
@@ -43,15 +45,17 @@
             <p class="app-subtitle">Digital Workspace</p>
 
             <div class="action-buttons">
-                <!-- Button: New Board -->
                 <button id="btn-new-board" class="flux-btn">
-                    <span class="icon">+</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                        <path d="M5 12h14"/><path d="M12 5v14"/>
+                    </svg>
                     <span class="label">New Board</span>
                 </button>
 
-                <!-- Button: Open File -->
                 <button id="btn-open-file" class="flux-btn">
-                    <span class="icon">📂</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M2 10h20"/>
+                    </svg>
                     <span class="label">Open from File</span>
                 </button>
             </div>
@@ -59,7 +63,7 @@
             <input type="file" id="file-input" accept=".json,.flux" style="display: none;" />
         </div>
 
-        <!-- SETTINGS MODAL OVERLAY -->
+        <!-- SETTINGS MODAL -->
         <div id="settings-modal" class="modal-overlay hidden">
             <div class="modal-content">
                 <div class="modal-header">
@@ -72,9 +76,9 @@
                     <div class="setting-section">
                         <h3>General</h3>
                         <div class="setting-row">
-                            <label>Theme</label>
-                            <!-- The "Breathtaking" Eclipse Toggle -->
-                            <div class="eclipse-toggle-wrapper">
+                            <label>Appearance</label>
+                            <!-- ECLIPSE TOGGLE -->
+                            <div class="toggle-wrapper">
                                 <input type="checkbox" id="theme-toggle">
                                 <label for="theme-toggle" class="eclipse-toggle">
                                     <span class="eclipse-moon"></span>
@@ -89,7 +93,16 @@
                         <h3>Board</h3>
                         <div class="setting-row">
                             <label for="grid-toggle">Show Dot Grid</label>
-                            <input type="checkbox" id="grid-toggle" checked class="ios-switch">
+                            
+                            <!-- NEW GRID ANIMATED TOGGLE -->
+                            <div class="toggle-wrapper">
+                                <input type="checkbox" id="grid-toggle" checked>
+                                <label for="grid-toggle" class="grid-toggle-label">
+                                    <div class="grid-pattern"></div>
+                                    <div class="grid-knob"></div>
+                                </label>
+                            </div>
+
                         </div>
                     </div>
 
@@ -105,12 +118,11 @@
             </div>
         </div>
 
-        <!-- THE WHITEBOARD (Hidden by default) -->
+        <!-- CANVAS -->
         <canvas id="flux-canvas" class="hidden"></canvas>
 
     </main>
 
-    <!-- PWA Service Worker -->
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js')
@@ -118,8 +130,6 @@
                 .catch(err => console.error("SW Error:", err));
         }
     </script>
-    
-    <!-- Scripts -->
     <script src="js/whiteboard.js"></script>
     <script src="app.js"></script>
 </body>

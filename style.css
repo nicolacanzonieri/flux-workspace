@@ -96,9 +96,8 @@ body {
     font-size: 1.1rem;
     cursor: pointer;
     transition: all 0.3s var(--ease-out);
-    display: flex; align-items: center; justify-content: center; gap: 10px;
+    display: flex; align-items: center; justify-content: center; gap: 12px;
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    /* Default shadow slightly visible */
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
 }
 
@@ -111,7 +110,10 @@ body {
 
 .flux-btn:active { transform: scale(0.96) translateY(0); }
 
-/* Danger Button (Red) */
+/* SVG Icon Styling */
+.icon-svg { width: 20px; height: 20px; stroke-width: 2px; }
+
+/* Danger Button */
 .flux-btn.danger-btn { border-color: rgba(255, 71, 87, 0.3); color: var(--danger-color); }
 .flux-btn.danger-btn:hover { 
     background: rgba(255, 71, 87, 0.1); 
@@ -119,15 +121,26 @@ body {
     box-shadow: 0 0 20px rgba(255, 71, 87, 0.3);
 }
 
-/* --- SETTINGS BUTTON (Top Right) --- */
+/* --- SETTINGS BUTTON (FIXED ROTATION) --- */
 .icon-btn.top-right {
     position: absolute; top: calc(var(--safe-top) + 20px); right: 20px;
-    background: transparent; border: none; font-size: 1.5rem; cursor: pointer;
-    z-index: 20; padding: 10px; border-radius: 50%; transition: transform 0.3s;
-    /* Emoji filter to match theme if needed, or replace with SVG */
-    filter: grayscale(100%); opacity: 0.7;
+    background: transparent; border: none; cursor: pointer;
+    z-index: 20; 
+    /* Precise dimensions for perfect centering */
+    width: 44px; height: 44px; 
+    display: flex; justify-content: center; align-items: center;
+    border-radius: 50%; 
+    color: var(--text-primary); opacity: 0.7;
+    transition: opacity 0.3s ease;
 }
-.icon-btn.top-right:hover { transform: rotate(90deg); opacity: 1; }
+.icon-btn.top-right .icon-wrapper {
+    display: flex; justify-content: center; align-items: center;
+    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy rotation */
+}
+.icon-btn.top-right .icon-svg { width: 24px; height: 24px; }
+.icon-btn.top-right:hover { opacity: 1; }
+.icon-btn.top-right:hover .icon-wrapper { transform: rotate(90deg); }
+
 
 /* --- SETTINGS MODAL --- */
 .modal-overlay {
@@ -160,64 +173,77 @@ body {
 .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .description { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px; }
 
-/* --- THE "ECLIPSE" TOGGLE ANIMATION --- */
-.eclipse-toggle-wrapper { position: relative; width: 60px; height: 30px; }
-#theme-toggle { display: none; }
+/* --- COMMON TOGGLE WRAPPER --- */
+.toggle-wrapper { position: relative; width: 60px; height: 30px; }
+.toggle-wrapper input { display: none; }
 
+/* --- 1. ECLIPSE TOGGLE (Dark Mode) --- */
 .eclipse-toggle {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background: #2a2a2e; border-radius: 30px; cursor: pointer;
     overflow: hidden; transition: background 0.5s ease;
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
 }
-
 .eclipse-sun {
     position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
     background: #ffdb4d; border-radius: 50%;
     transition: transform 0.5s var(--ease-out), box-shadow 0.5s ease;
-    transform: translateX(0); /* Default (Dark Mode position - simulated via logic below) */
-    box-shadow: 0 0 0 rgba(255, 219, 77, 0);
+    transform: translateX(0); 
 }
-
 .eclipse-moon {
     position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
-    background: #2a2a2e; border-radius: 50%; z-index: 2;
-    transform: translateX(10px); /* Partial eclipse by default */
-    transition: transform 0.5s var(--ease-out);
+    background: #2a2a2e; /* Matches default sky */
+    border-radius: 50%; z-index: 2;
+    transform: translateX(8px);
+    transition: transform 0.5s var(--ease-out), background 0.5s ease;
+}
+#theme-toggle:checked + .eclipse-toggle { background: #87ceeb; }
+#theme-toggle:checked + .eclipse-toggle .eclipse-moon { background: #87ceeb; transform: translateX(60px); }
+#theme-toggle:checked + .eclipse-toggle .eclipse-sun { transform: translateX(30px); box-shadow: 0 0 15px #ffdb4d; }
+#theme-toggle:not(:checked) + .eclipse-toggle .eclipse-sun { background: #d1d1d1; }
+
+/* --- 2. GRID TOGGLE (Animated Grid Background) --- */
+.grid-toggle-label {
+    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+    background: #2a2a2e; border-radius: 30px; cursor: pointer;
+    overflow: hidden; transition: background 0.3s ease;
+    box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
 }
 
-/* Checked State (Light Mode) */
-#theme-toggle:checked + .eclipse-toggle { background: #87ceeb; /* Sky blue */ }
-#theme-toggle:checked + .eclipse-toggle .eclipse-sun {
-    transform: translateX(30px); /* Moves right */
-    box-shadow: 0 0 15px #ffdb4d; /* Glowing sun */
-}
-#theme-toggle:checked + .eclipse-toggle .eclipse-moon {
-    transform: translateX(60px); /* Moves out of view */
-}
-
-/* Unchecked State (Dark Mode - tweak for visual) */
-#theme-toggle:not(:checked) + .eclipse-toggle .eclipse-sun {
-    background: #d1d1d1; /* Dull moon-like color */
-}
-#theme-toggle:not(:checked) + .eclipse-toggle .eclipse-moon {
-    transform: translateX(8px); /* Covers part of the sun */
+/* The Grid Pattern Overlay */
+.grid-pattern {
+    position: absolute; width: 100%; height: 100%;
+    background-image: 
+        linear-gradient(rgba(255, 255, 255, 0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255, 255, 255, 0.3) 1px, transparent 1px);
+    background-size: 8px 8px; /* Small technical grid */
+    opacity: 0; /* Hidden by default */
+    transition: opacity 0.3s ease;
 }
 
-/* --- STANDARD IOS SWITCH (For Grid) --- */
-.ios-switch {
-    appearance: none; width: 50px; height: 30px; background: #333; border-radius: 30px;
-    position: relative; cursor: pointer; transition: background 0.3s;
+/* The Knob */
+.grid-knob {
+    position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
+    background: #ffffff; border-radius: 50%;
+    transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); /* Bouncy move */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
 }
-.ios-switch::after {
-    content: ''; position: absolute; top: 2px; left: 2px; width: 26px; height: 26px;
-    background: #fff; border-radius: 50%; transition: transform 0.3s;
+
+/* Grid Toggle Logic */
+#grid-toggle:checked + .grid-toggle-label {
+    background: var(--accent-color); /* Neon Blue bg */
 }
-.ios-switch:checked { background: var(--accent-color); }
-.ios-switch:checked::after { transform: translateX(20px); }
+
+#grid-toggle:checked + .grid-toggle-label .grid-pattern {
+    opacity: 0.4; /* Show the grid! */
+}
+
+#grid-toggle:checked + .grid-toggle-label .grid-knob {
+    transform: translateX(30px);
+}
 
 /* --- CANVAS --- */
-canvas { display: block; width: 100%; height: 100%; touch-action: none; /* Prevents scrolling on mobile */ }
+canvas { display: block; width: 100%; height: 100%; touch-action: none; }
 canvas.hidden { display: none; }
 
 /* ANIMATIONS */
