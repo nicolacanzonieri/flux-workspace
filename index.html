@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <!-- Viewport settings for perfect mobile scaling and preventing zoom -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
+    <meta name="theme-color" content="#0f0f11"/>
+    
+    <!-- iOS native app look & feel -->
+    <meta name="apple-mobile-web-app-capable" content="yes"/>
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+    <meta name="apple-mobile-web-app-title" content="Flux"/>
+    <link rel="apple-touch-icon" href="icon.png"/>
+    
+    <link rel="icon" type="image/x-icon" href="icon.png"/>
+    <link rel="manifest" href="manifest.json"/>
+    <link rel="stylesheet" href="style.css"/>
+    
+    <title>Flux Workspace</title>
+</head>
+<body>
+
+    <!-- SPLASH SCREEN: Initial loading animation -->
+    <div id="splash-screen">
+        <div class="flux-logo">
+            <div class="flux-core"></div>
+            <div class="flux-ring"></div>
+        </div>
+        <div class="loading-text">Initializing Workspace</div>
+    </div>
+
+    <!-- APP CONTAINER -->
+    <main id="app" class="hidden">
+        
+        <!-- SETTINGS BUTTON (Top Right) -->
+        <button id="btn-settings-toggle" class="icon-btn top-right" aria-label="Settings">
+            ⚙️
+        </button>
+
+        <!-- HOME MENU -->
+        <div id="home-menu" class="menu-container">
+            <h1 class="app-title">Flux</h1>
+            <p class="app-subtitle">Digital Workspace</p>
+
+            <div class="action-buttons">
+                <!-- Button: New Board -->
+                <button id="btn-new-board" class="flux-btn">
+                    <span class="icon">+</span>
+                    <span class="label">New Board</span>
+                </button>
+
+                <!-- Button: Open File -->
+                <button id="btn-open-file" class="flux-btn">
+                    <span class="icon">📂</span>
+                    <span class="label">Open from File</span>
+                </button>
+            </div>
+
+            <input type="file" id="file-input" accept=".json,.flux" style="display: none;" />
+        </div>
+
+        <!-- SETTINGS MODAL OVERLAY -->
+        <div id="settings-modal" class="modal-overlay hidden">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Settings</h2>
+                    <button id="btn-close-settings" class="close-btn">×</button>
+                </div>
+                
+                <div class="settings-scroll-area">
+                    <!-- SECTION: GENERAL -->
+                    <div class="setting-section">
+                        <h3>General</h3>
+                        <div class="setting-row">
+                            <label>Theme</label>
+                            <!-- The "Breathtaking" Eclipse Toggle -->
+                            <div class="eclipse-toggle-wrapper">
+                                <input type="checkbox" id="theme-toggle">
+                                <label for="theme-toggle" class="eclipse-toggle">
+                                    <span class="eclipse-moon"></span>
+                                    <span class="eclipse-sun"></span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION: BOARD -->
+                    <div class="setting-section">
+                        <h3>Board</h3>
+                        <div class="setting-row">
+                            <label for="grid-toggle">Show Dot Grid</label>
+                            <input type="checkbox" id="grid-toggle" checked class="ios-switch">
+                        </div>
+                    </div>
+
+                    <!-- SECTION: DANGER ZONE -->
+                    <div class="setting-section danger">
+                        <h3>System</h3>
+                        <p class="description">Force update and clear all local caches.</p>
+                        <button id="btn-hard-reset" class="flux-btn danger-btn">
+                            ⚠️ Reset App & Update
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- THE WHITEBOARD (Hidden by default) -->
+        <canvas id="flux-canvas" class="hidden"></canvas>
+
+    </main>
+
+    <!-- PWA Service Worker -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js')
+                .then(() => console.log('Flux SW Registered'))
+                .catch(err => console.error("SW Error:", err));
+        }
+    </script>
+    
+    <!-- Scripts -->
+    <script src="js/whiteboard.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

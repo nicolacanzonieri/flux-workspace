@@ -1,0 +1,19 @@
+{
+    "name": "Flux Workspace",
+    "short_name": "Flux",
+    "start_url": "./index.html",
+    "scope": ".",
+    "display": "standalone",
+    "orientation": "any",
+    "background_color": "#0f0f11",
+    "theme_color": "#0f0f11",
+    "icons": [{
+        "src": "icon.png",
+        "sizes": "192x192",
+        "type": "image/png"
+    }, {
+        "src": "icon.png",
+        "sizes": "512x512",
+        "type": "image/png"
+    }]
+}
