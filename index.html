@@ -30,16 +30,17 @@
     <!-- APP CONTAINER -->
     <main id="app" class="hidden">
         
-        <!-- TOP NAVIGATION BAR (Floating Pill) -->
+        <!-- TOP NAVIGATION BAR -->
         <div class="top-nav">
-            <!-- HOME BUTTON (Hidden on start) -->
+            <!-- HOME BUTTON -->
             <button id="btn-home" class="icon-btn home-btn hidden" aria-label="Home">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
-                    <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-                </svg>
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                        <path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                    </svg>
+                </div>
             </button>
 
-            <!-- This separator will hide automatically via CSS when Home is hidden -->
             <div class="nav-separator"></div>
 
             <!-- SETTINGS BUTTON -->
@@ -72,7 +73,6 @@
                     <span class="label">Open from File</span>
                 </button>
             </div>
-
             <input type="file" id="file-input" accept=".json,.flux" style="display: none;" />
         </div>
 
@@ -83,9 +83,7 @@
                     <h2>Settings</h2>
                     <button id="btn-close-settings" class="close-btn">×</button>
                 </div>
-                
                 <div class="settings-scroll-area">
-                    <!-- SECTION: GENERAL -->
                     <div class="setting-section">
                         <h3>General</h3>
                         <div class="setting-row">
@@ -99,8 +97,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- SECTION: BOARD -->
                     <div class="setting-section">
                         <h3>Board</h3>
                         <div class="setting-row">
@@ -114,8 +110,6 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- SECTION: DANGER ZONE -->
                     <div class="setting-section danger">
                         <h3>System</h3>
                         <p class="description">Force update and clear all local caches.</p>
@@ -132,13 +126,6 @@
 
     </main>
 
-    <script>
-        if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('sw.js')
-                .then(() => console.log('Flux SW Registered'))
-                .catch(err => console.error("SW Error:", err));
-        }
-    </script>
     <script src="js/whiteboard.js"></script>
     <script src="app.js"></script>
 </body>
