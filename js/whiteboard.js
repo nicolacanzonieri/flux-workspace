@@ -167,8 +167,21 @@ class FluxWhiteboard {
     handleMouseDown(e) {
         const mouse = this.screenToWorld(e.clientX, e.clientY);
         const tool = window.flux.state.activeTool;
+        
+        // 1. GLOBAL PANNING PRIORITY (Shift + Click or Middle Click)
+        // This must be checked first to allow panning even if an object is under the cursor
+        if (e.shiftKey || e.button === 1 || tool === 'pan') {
+            this.interaction.isPanning = true;
+            this.interaction.lastMouseX = e.clientX;
+            this.interaction.lastMouseY = e.clientY;
+            this.canvas.classList.add('panning');
+            this.render();
+            return; // Exit to prevent selection/dragging logic
+        }
+
         let hitFound = false;
 
+        // 2. Handle interaction (Check currently selected elements for handles)
         for (const el of this.interaction.selectedElements) {
             if (el.type === 'line') {
                 const d1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
@@ -187,6 +200,7 @@ class FluxWhiteboard {
             }
         }
 
+        // 3. Select Tool Specific Logic
         if (tool === 'select') {
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
@@ -216,25 +230,35 @@ class FluxWhiteboard {
             }
         }
 
-        if (e.shiftKey || e.button === 1 || tool === 'pan') {
-            this.interaction.isPanning = true;
-            this.interaction.lastMouseX = e.clientX;
-            this.interaction.lastMouseY = e.clientY;
-            this.canvas.classList.add('panning');
-        }
-
         this.render();
         if(window.flux) window.flux.updateEditBar();
     }
 
     handleMouseMove(e) {
         const mouse = this.screenToWorld(e.clientX, e.clientY);
+
+        // Priority 1: Panning
+        if (this.interaction.isPanning) {
+            const dx = e.clientX - this.interaction.lastMouseX;
+            const dy = e.clientY - this.interaction.lastMouseY;
+            this.view.offsetX += dx;
+            this.view.offsetY += dy;
+            this.interaction.lastMouseX = e.clientX;
+            this.interaction.lastMouseY = e.clientY;
+            this.render();
+            return;
+        }
+
+        // Priority 2: Handle Dragging
         if (this.interaction.isDraggingHandle) {
             const el = this.interaction.draggedElement;
             const handle = this.interaction.draggedHandle;
             el[handle].x = mouse.x; el[handle].y = mouse.y;
-            this.render(); return;
+            this.render(); 
+            return;
         }
+
+        // Priority 3: Element Dragging
         if (this.interaction.isDraggingElements) {
             const dx = mouse.x - this.interaction.dragLastWorldPos.x;
             const dy = mouse.y - this.interaction.dragLastWorldPos.y;
@@ -245,21 +269,16 @@ class FluxWhiteboard {
                 }
             });
             this.interaction.dragLastWorldPos = mouse;
-            this.render(); return;
+            this.render(); 
+            return;
         }
+
+        // Priority 4: Marquee Selection
         if (this.interaction.isSelecting) {
             this.interaction.selectionBox.currentX = mouse.x;
             this.interaction.selectionBox.currentY = mouse.y;
-            this.render(); return;
-        }
-        if (this.interaction.isPanning) {
-            const dx = e.clientX - this.interaction.lastMouseX;
-            const dy = e.clientY - this.interaction.lastMouseY;
-            this.view.offsetX += dx;
-            this.view.offsetY += dy;
-            this.interaction.lastMouseX = e.clientX;
-            this.interaction.lastMouseY = e.clientY;
-            this.render();
+            this.render(); 
+            return;
         }
     }
 
@@ -309,7 +328,7 @@ class FluxWhiteboard {
             this.interaction.initialTouchCenter = this.getTouchCenter(e.touches);
         } else if (e.touches.length === 1) {
             const t = e.touches[0];
-            this.handleMouseDown({ clientX: t.clientX, clientY: t.clientY, button: 0 });
+            this.handleMouseDown({ clientX: t.clientX, clientY: t.clientY, button: 0, shiftKey: false });
         }
     }
 
@@ -372,16 +391,11 @@ class FluxWhiteboard {
             if (el.type === 'line') {
                 const screenP1 = this.worldToScreen(el.p1.x, el.p1.y);
                 const screenP2 = this.worldToScreen(el.p2.x, el.p2.y);
-                
                 const angle = Math.atan2(screenP2.y - screenP1.y, screenP2.x - screenP1.x);
                 const headlen = (el.width * 4 + 6) * this.view.scale;
                 
-                // LINE SHORTENING LOGIC:
-                // We shorten the line stroke by headlen so the rounded cap doesn't poke out.
-                let startX = screenP1.x;
-                let startY = screenP1.y;
-                let endX = screenP2.x;
-                let endY = screenP2.y;
+                let startX = screenP1.x; let startY = screenP1.y;
+                let endX = screenP2.x; let endY = screenP2.y;
 
                 if (el.arrowStart) {
                     startX += headlen * 0.8 * Math.cos(angle);
@@ -406,7 +420,6 @@ class FluxWhiteboard {
                 this.ctx.lineCap = 'round';
                 this.ctx.stroke();
                 
-                // Draw Arrowheads (they use original coords to sit at the tip)
                 if (el.arrowStart) this.drawArrowhead(el.p2, el.p1, el.color, el.width);
                 if (el.arrowEnd) this.drawArrowhead(el.p1, el.p2, el.color, el.width);
 
@@ -419,26 +432,14 @@ class FluxWhiteboard {
         });
     }
 
-    /**
-     * @method drawArrowhead
-     * @description Draws an arrowhead exactly at the extreme of the line.
-     */
     drawArrowhead(from, to, color, width) {
         const headlen = (width * 4 + 6) * this.view.scale;
         const angle = Math.atan2(to.y - from.y, to.x - from.x);
         const screenTo = this.worldToScreen(to.x, to.y);
-
-        // Position the arrow tip exactly at the destination coordinate.
         this.ctx.beginPath();
         this.ctx.moveTo(screenTo.x, screenTo.y);
-        this.ctx.lineTo(
-            screenTo.x - headlen * Math.cos(angle - Math.PI / 6), 
-            screenTo.y - headlen * Math.sin(angle - Math.PI / 6)
-        );
-        this.ctx.lineTo(
-            screenTo.x - headlen * Math.cos(angle + Math.PI / 6), 
-            screenTo.y - headlen * Math.sin(angle + Math.PI / 6)
-        );
+        this.ctx.lineTo(screenTo.x - headlen * Math.cos(angle - Math.PI / 6), screenTo.y - headlen * Math.sin(angle - Math.PI / 6));
+        this.ctx.lineTo(screenTo.x - headlen * Math.cos(angle + Math.PI / 6), screenTo.y - headlen * Math.sin(angle + Math.PI / 6));
         this.ctx.closePath();
         this.ctx.fillStyle = color;
         this.ctx.fill();
