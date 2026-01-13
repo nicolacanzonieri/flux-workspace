@@ -1,6 +1,7 @@
 /**
  * @class FluxWhiteboard
  * @description Advanced rendering engine for the infinite whiteboard.
+ * Handles coordinates, zoom math, and high-performance canvas drawing.
  */
 class FluxWhiteboard {
     /**
@@ -47,6 +48,29 @@ class FluxWhiteboard {
         this.resize();
     }
 
+    /**
+     * @method getState
+     * @description Returns the current state of the whiteboard for saving.
+     */
+    getState() {
+        return {
+            elements: JSON.parse(JSON.stringify(this.elements)), // Deep copy
+            view: { ...this.view }
+        };
+    }
+
+    /**
+     * @method loadState
+     * @description Loads a previously saved state and re-renders.
+     */
+    loadState(state) {
+        if (!state) return;
+        this.elements = state.elements || [];
+        this.view = state.view || { offsetX: window.innerWidth / 2, offsetY: window.innerHeight / 2, scale: 1 };
+        this.interaction.selectedElements = [];
+        this.render();
+    }
+
     clearBoard() {
         this.elements = []; this.interaction.selectedElements = []; this.interaction.selectionBox = null;
         this.view.offsetX = window.innerWidth / 2; this.view.offsetY = window.innerHeight / 2; this.view.scale = 1;
@@ -73,27 +97,10 @@ class FluxWhiteboard {
         this.elements.push(newShape); this.interaction.selectedElements = [newShape]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
-    /**
-     * @method addText
-     * @description Spawns a new text block element.
-     */
     addText(color) {
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newText = {
-            id: Date.now(),
-            type: 'text',
-            content: "Double tap to edit text...",
-            x: center.x - 100, y: center.y - 40,
-            width: 200, height: 80,
-            color: color,
-            isAutoColor: true,
-            fontSize: 16,
-            hasOverflow: false
-        };
-        this.elements.push(newText);
-        this.interaction.selectedElements = [newText];
-        this.render();
-        if(window.flux) window.flux.updateEditBar();
+        const newText = { id: Date.now(), type: 'text', content: "Double tap to edit text...", x: center.x - 100, y: center.y - 40, width: 200, height: 80, color, isAutoColor: true, fontSize: 16, hasOverflow: false };
+        this.elements.push(newText); this.interaction.selectedElements = [newText]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
     duplicateSelected() {
@@ -116,10 +123,7 @@ class FluxWhiteboard {
 
     updateThemeColors(isLightMode) {
         const newColor = isLightMode ? '#1a1a1d' : '#ffffff';
-        this.elements.forEach(el => {
-            if (el.isAutoColor) el.color = newColor;
-            if (el.isAutoFill) el.fillColor = newColor;
-        });
+        this.elements.forEach(el => { if (el.isAutoColor) el.color = newColor; if (el.isAutoFill) el.fillColor = newColor; });
         this.render();
     }
 
@@ -311,7 +315,6 @@ class FluxWhiteboard {
             this.ctx.strokeStyle = el.color;
             this.ctx.lineWidth = (el.strokeWidth || el.width || 3) * this.view.scale;
             this.ctx.lineCap = 'round'; this.ctx.lineJoin = 'round';
-
             if (el.type === 'line' || el.type === 'pen') {
                 if (el.dashStyle === 'dashed') this.ctx.setLineDash([15 * this.view.scale, 10 * this.view.scale]);
                 else if (el.dashStyle === 'dotted') this.ctx.setLineDash([2 * this.view.scale, 8 * this.view.scale]);
@@ -336,80 +339,30 @@ class FluxWhiteboard {
                 if (el.fillColor !== 'transparent') { this.ctx.fillStyle = el.fillColor; this.ctx.fill(); }
                 if (el.color !== 'transparent') this.ctx.stroke();
                 if (isSelected) this.getElementHandles(el).forEach(h => { const sh = this.worldToScreen(h.x, h.y); this.drawHandle(sh.x, sh.y, el.color !== 'transparent' ? el.color : '#888'); });
-            } else if (el.type === 'text') {
-                this.drawTextElement(el, isSelected);
-            }
+            } else if (el.type === 'text') this.drawTextElement(el, isSelected);
             this.ctx.restore();
         });
     }
 
-    /**
-     * @method drawTextElement
-     * @description Specialized renderer for text blocks with wrap and overflow logic.
-     */
     drawTextElement(el, isSelected) {
-        const sPos = this.worldToScreen(el.x, el.y);
-        const sW = el.width * this.view.scale;
-        const sH = el.height * this.view.scale;
-        const scaledFontSize = el.fontSize * this.view.scale;
-
-        this.ctx.font = `${scaledFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
-        this.ctx.fillStyle = el.color;
-        this.ctx.textBaseline = 'top';
-
-        const lines = this.wrapText(el.content, el.width);
-        const lineHeight = scaledFontSize * 1.2;
-        const totalTextHeight = lines.length * lineHeight;
-
-        // Overflow Check
+        const sPos = this.worldToScreen(el.x, el.y), sW = el.width * this.view.scale, sH = el.height * this.view.scale, scaledFontSize = el.fontSize * this.view.scale;
+        this.ctx.font = `${scaledFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`; this.ctx.fillStyle = el.color; this.ctx.textBaseline = 'top';
+        const lines = this.wrapText(el.content, el.width); const lineHeight = scaledFontSize * 1.2, totalTextHeight = lines.length * lineHeight;
         el.hasOverflow = totalTextHeight > sH;
-
-        // Draw selection/overflow border
-        if (isSelected || el.hasOverflow) {
-            this.ctx.lineWidth = 1;
-            this.ctx.strokeStyle = el.hasOverflow ? '#ff4757' : getComputedStyle(document.body).getPropertyValue('--accent-color');
-            this.ctx.setLineDash([5, 5]);
-            this.ctx.strokeRect(sPos.x, sPos.y, sW, sH);
-            this.ctx.setLineDash([]);
-        }
-
-        // Draw Text (Clipped to block)
-        this.ctx.save();
-        this.ctx.beginPath();
-        this.ctx.rect(sPos.x, sPos.y, sW, sH);
-        this.ctx.clip();
-        
-        lines.forEach((line, i) => {
-            this.ctx.fillText(line, sPos.x, sPos.y + i * lineHeight);
-        });
-        this.ctx.restore();
-
-        // Draw handles if selected
-        if (isSelected) {
-            this.getElementHandles(el).forEach(h => {
-                const sh = this.worldToScreen(h.x, h.y);
-                this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color'));
-            });
-        }
+        if (isSelected || el.hasOverflow) { this.ctx.lineWidth = 1; this.ctx.strokeStyle = el.hasOverflow ? '#ff4757' : getComputedStyle(document.body).getPropertyValue('--accent-color'); this.ctx.setLineDash([5, 5]); this.ctx.strokeRect(sPos.x, sPos.y, sW, sH); this.ctx.setLineDash([]); }
+        this.ctx.save(); this.ctx.beginPath(); this.ctx.rect(sPos.x, sPos.y, sW, sH); this.ctx.clip();
+        lines.forEach((line, i) => { this.ctx.fillText(line, sPos.x, sPos.y + i * lineHeight); }); this.ctx.restore();
+        if (isSelected) this.getElementHandles(el).forEach(h => { const sh = this.worldToScreen(h.x, h.y); this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color')); });
     }
 
     wrapText(text, maxWidth) {
-        const words = text.split(' ');
-        let lines = [];
-        let currentLine = words[0];
-
+        const words = text.split(' '); let lines = []; let currentLine = words[0];
         for (let i = 1; i < words.length; i++) {
-            const word = words[i];
-            const width = this.ctx.measureText(currentLine + " " + word).width / this.view.scale;
-            if (width < maxWidth) {
-                currentLine += " " + word;
-            } else {
-                lines.push(currentLine);
-                currentLine = word;
-            }
+            const word = words[i]; const width = this.ctx.measureText(currentLine + " " + word).width / this.view.scale;
+            if (width < maxWidth) currentLine += " " + word;
+            else { lines.push(currentLine); currentLine = word; }
         }
-        lines.push(currentLine);
-        return lines;
+        lines.push(currentLine); return lines;
     }
 
     drawShapePath(t, x, y, w, h) {

@@ -18,6 +18,14 @@ class FluxApp {
             btnOpen: document.getElementById('btn-open-file'),
             btnSettings: document.getElementById('btn-settings-toggle'),
             btnHome: document.getElementById('btn-home'),
+            
+            // Library Components
+            libNav: document.querySelector('.top-left-nav'),
+            btnLibToggle: document.getElementById('btn-library-toggle'),
+            libPopup: document.getElementById('library-popup'),
+            libBoardList: document.getElementById('library-board-list'),
+            btnLibNewBoard: document.getElementById('btn-lib-new-board'),
+
             btnCloseSettings: document.getElementById('btn-close-settings'),
             btnHardReset: document.getElementById('btn-hard-reset'),
             toolBtns: document.querySelectorAll('.bottom-toolbar .tool-btn'),
@@ -46,7 +54,6 @@ class FluxApp {
             btnStrokeMinus: document.getElementById('btn-stroke-minus'),
             btnStrokePlus: document.getElementById('btn-stroke-plus'),
 
-            // Text Editing Controls
             groupTextActions: document.getElementById('group-text-actions'),
             dividerTextActions: document.getElementById('divider-text-actions'),
             btnEditText: document.getElementById('btn-edit-text'),
@@ -59,7 +66,18 @@ class FluxApp {
             btnDelete: document.getElementById('btn-delete')
         };
         
-        this.state = { isReady: false, boardActive: false, activeTool: 'select', pickingMode: 'stroke' };
+        this.state = { 
+            isReady: false, 
+            boardActive: false, 
+            activeTool: 'select', 
+            pickingMode: 'stroke',
+            activeBoardId: null
+        };
+
+        this.project = {
+            name: "Untitled Project",
+            boards: []
+        };
         this.whiteboard = null;
         this.init();
     }
@@ -79,6 +97,21 @@ class FluxApp {
         this.dom.menuContent.classList.add('fade-in'); this.state.isReady = true;
     }
 
+    /**
+     * @method saveCurrentBoardState
+     * @description Syncs the current whiteboard engine data back to the boards array.
+     */
+    saveCurrentBoardState() {
+        if (this.state.activeBoardId && this.whiteboard) {
+            const board = this.project.boards.find(b => b.id === this.state.activeBoardId);
+            if (board) {
+                const currentState = this.whiteboard.getState();
+                board.elements = currentState.elements;
+                board.view = currentState.view;
+            }
+        }
+    }
+
     loadSettings() {
         const t = localStorage.getItem('flux-theme'); if(t==='light'){ document.body.classList.add('light-mode'); this.dom.themeToggle.checked=true; }
         const g = localStorage.getItem('flux-grid'); if(g==='false'){ this.dom.gridToggle.checked=false; if(this.whiteboard) this.whiteboard.setGridEnabled(false); }
@@ -87,6 +120,15 @@ class FluxApp {
     bindEvents() {
         this.dom.btnNew.addEventListener('click', () => this.startNewBoard());
         this.dom.btnHome.addEventListener('click', () => this.returnToHome());
+
+        this.dom.btnLibToggle.addEventListener('click', (e) => { e.stopPropagation(); this.dom.libPopup.classList.toggle('hidden'); });
+        window.addEventListener('click', () => this.dom.libPopup.classList.add('hidden'));
+        this.dom.libPopup.addEventListener('click', (e) => e.stopPropagation());
+
+        this.dom.btnLibNewBoard.addEventListener('click', () => {
+            this.dom.libPopup.classList.add('hidden');
+            this.addNewBoardToProject();
+        });
 
         this.dom.toolBtns.forEach(btn => btn.addEventListener('click', () => {
             const t = btn.getAttribute('data-tool');
@@ -100,8 +142,8 @@ class FluxApp {
         this.dom.btnColorPicker.addEventListener('click', () => { this.state.pickingMode = 'stroke'; document.getElementById('color-modal-title').textContent = 'Color'; this.dom.colorModal.classList.remove('hidden'); });
         this.dom.btnFillPicker.addEventListener('click', () => { this.state.pickingMode = 'fill'; document.getElementById('color-modal-title').textContent = 'Fill Color'; this.dom.colorModal.classList.remove('hidden'); });
         this.dom.btnStrokePicker.addEventListener('click', () => this.dom.strokeModal.classList.remove('hidden'));
+        
         [this.dom.btnCloseSettings, this.dom.btnCloseColor, this.dom.btnCloseStroke, this.dom.btnCloseShapes].forEach(b => b.addEventListener('click', () => b.closest('.modal-overlay').classList.add('hidden')));
-        [this.dom.settingsModal, this.dom.colorModal, this.dom.strokeModal, this.dom.shapesModal].forEach(m => m.addEventListener('click', e => { if(e.target === m) m.classList.add('hidden'); }));
 
         this.dom.themeToggle.addEventListener('change', e => {
             const isL = e.target.checked; document.body.classList.toggle('light-mode', isL);
@@ -137,13 +179,8 @@ class FluxApp {
             this.dom.shapesModal.classList.add('hidden'); this.selectTool('select');
         }));
 
-        // Text Size Events
         this.dom.btnTextSizeUp.addEventListener('click', () => this.updateSelectedProperty(el => el.fontSize += 2));
         this.dom.btnTextSizeDown.addEventListener('click', () => this.updateSelectedProperty(el => el.fontSize = Math.max(8, el.fontSize - 2)));
-        this.dom.btnEditText.addEventListener('click', () => {
-            // Placeholder for future markdown editor logic
-            console.log("Flux: Opening Markdown Editor Placeholder...");
-        });
 
         this.dom.styleBtns.forEach(btn => btn.addEventListener('click', () => {
             const s = btn.getAttribute('data-style'); this.updateSelectedProperty(el => el.dashStyle = s);
@@ -170,21 +207,16 @@ class FluxApp {
             if(sel.length === 1) {
                 const el = sel[0];
                 const isL = el.type === 'line', isS = el.type === 'shape', isT = el.type === 'text';
-                
-                // Toggle sections visibility
                 this.dom.dividerTextActions.style.display = isT ? 'block' : 'none';
                 this.dom.groupTextActions.style.display = isT ? 'flex' : 'none';
-                
                 document.getElementById('divider-stroke').style.display = isT ? 'none' : 'block';
                 document.getElementById('group-stroke').style.display = isT ? 'none' : 'flex';
                 document.getElementById('divider-style').style.display = isT ? 'none' : 'block';
                 document.getElementById('group-style').style.display = isT ? 'none' : 'flex';
                 document.getElementById('divider-arrows').style.display = isL ? 'block' : 'none';
                 document.getElementById('group-arrows').style.display = isL ? 'flex' : 'none';
-
                 this.dom.btnFillPicker.style.display = isS ? 'flex' : 'none';
                 this.dom.colorOptEmpty.style.display = isS ? 'flex' : 'none';
-
                 if(!isT) this.syncStrokeUI(el.strokeWidth || el.width || 3);
                 if(isS) this.syncPickerButtonAppearance(this.dom.btnFillPicker, el.fillColor, el.isAutoFill);
                 this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
@@ -195,13 +227,110 @@ class FluxApp {
     createLineAction() { if(this.whiteboard){ const isL = document.body.classList.contains('light-mode'); this.whiteboard.addLine(isL ? '#1a1a1d' : '#ffffff'); this.selectTool('select'); } }
     createTextAction() { if(this.whiteboard){ const isL = document.body.classList.contains('light-mode'); this.whiteboard.addText(isL ? '#1a1a1d' : '#ffffff'); this.selectTool('select'); } }
 
+    renderLibrary() {
+        this.dom.libBoardList.innerHTML = '';
+        this.project.boards.forEach(board => {
+            const item = document.createElement('div');
+            item.className = `library-item ${board.id === this.state.activeBoardId ? 'active' : ''}`;
+            item.innerHTML = `
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>
+                <span>${board.name}</span>
+            `;
+            item.addEventListener('click', () => { this.switchToBoard(board.id); this.dom.libPopup.classList.add('hidden'); });
+            this.dom.libBoardList.appendChild(item);
+        });
+    }
+
+    /**
+     * @method switchToBoard
+     * @description Switches the active view to a different board within the same project.
+     */
+    switchToBoard(id) {
+        this.saveCurrentBoardState();
+
+        this.state.activeBoardId = id;
+        
+        const board = this.project.boards.find(b => b.id === id);
+
+        if (this.whiteboard && board) {
+            this.whiteboard.loadState({
+                elements: board.elements,
+                view: board.view
+            });
+            
+            this.updateEditBar();
+            this.whiteboard.render();
+        }
+
+        this.renderLibrary();
+    }
+
     selectTool(t) {
         this.state.activeTool = t; this.dom.toolBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tool') === t));
         if(this.whiteboard){ this.whiteboard.render(); if(t !== 'select'){ this.dom.editBar.classList.add('hidden'); this.whiteboard.interaction.selectedElements = []; } }
     }
 
-    startNewBoard() { if(this.whiteboard) this.whiteboard.clearBoard(); this.dom.menu.classList.add('hidden'); this.dom.canvas.classList.remove('hidden'); this.dom.toolbar.classList.remove('hidden'); this.state.boardActive = true; this.dom.btnHome.classList.remove('hidden'); if(this.whiteboard) this.whiteboard.resize(); }
-    returnToHome() { this.dom.canvas.classList.add('hidden'); this.dom.toolbar.classList.add('hidden'); this.dom.editBar.classList.add('hidden'); this.state.boardActive = false; this.dom.btnHome.classList.add('hidden'); this.dom.menu.classList.remove('hidden'); }
-    async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of ns) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
+    startNewBoard() {
+        if (this.project.boards.length === 0) {
+            this.addNewBoardToProject("Initial Board");
+        }
+
+        this.dom.menu.classList.add('hidden');
+        this.dom.canvas.classList.remove('hidden');
+        this.dom.toolbar.classList.remove('hidden');
+        this.dom.btnHome.classList.remove('hidden');
+        this.dom.libNav.classList.remove('hidden');
+        
+        if(this.whiteboard) this.whiteboard.resize();
+        this.state.boardActive = true;
+        this.renderLibrary();
+    }
+
+    /**
+     * @method addNewBoardToProject
+     * @description Adds a new board to the current active project.
+     */
+    addNewBoardToProject(name) {
+        this.saveCurrentBoardState();
+        const id = Date.now();
+        const boardName = name || `Board ${this.project.boards.length + 1}`;
+        
+        const newBoard = { 
+            id, 
+            name: boardName, 
+            elements: [], 
+            view: { offsetX: window.innerWidth / 2, offsetY: window.innerHeight / 2, scale: 1 } 
+        };
+        
+        this.project.boards.push(newBoard);
+        this.state.activeBoardId = id;
+
+        if(this.whiteboard) {
+            this.whiteboard.clearBoard();
+        }
+        this.renderLibrary();
+    }
+
+    returnToHome() {
+        this.project = {
+            name: "Untitled Project",
+            boards: []
+        };
+        this.state.activeBoardId = null;
+
+        // Reset UI
+        this.dom.canvas.classList.add('hidden'); 
+        this.dom.toolbar.classList.add('hidden'); 
+        this.dom.editBar.classList.add('hidden');
+        this.dom.btnHome.classList.add('hidden'); 
+        this.dom.libNav.classList.add('hidden'); 
+        
+        this.state.boardActive = false; 
+        this.dom.menu.classList.remove('hidden');
+        
+        this.renderLibrary();
+    }
+
+    async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of names) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
 }
 document.addEventListener('DOMContentLoaded', () => window.flux = new FluxApp());

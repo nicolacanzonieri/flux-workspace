@@ -55,7 +55,9 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 #splash-screen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: #000000; z-index: 9999; transition: opacity 1s var(--ease-out), visibility 1s; }
 #splash-screen.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
 
-/* === 4. TOP NAVIGATION BAR === */
+/* === 4. TOP NAVIGATION BARS === */
+
+/* Right Navigation (Settings, Home) */
 .top-nav {
     position: absolute; top: calc(var(--safe-top) + 15px); right: calc(var(--safe-right) + 15px);
     z-index: 20; display: flex; align-items: center; justify-content: center;
@@ -64,14 +66,71 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); transition: all 0.5s var(--ease-out);
     gap: 0; overflow: hidden;
 }
-.nav-separator { width: 1px; height: 20px; background: var(--border-color); margin: 0 4px; opacity: 0.5; transition: opacity 0.3s, width 0.4s var(--ease-out); flex-shrink: 0; }
-.icon-btn { background: transparent; border: none; cursor: pointer; width: 44px; height: 44px; display: flex; justify-content: center; align-items: center; border-radius: 50%; color: var(--text-secondary); transition: all 0.3s ease; flex-shrink: 0; }
-.icon-btn:hover { color: var(--text-primary); background: var(--btn-hover-bg); }
+
+.nav-separator { 
+    width: 1px; height: 20px; background: var(--border-color); margin: 0 4px; 
+    opacity: 0.5; transition: opacity 0.3s, width 0.4s var(--ease-out); 
+    flex-shrink: 0; 
+}
+
+/* Home button specific sliding animation */
+.home-btn { 
+    width: 44px; opacity: 1; overflow: hidden;
+    transition: width 0.5s var(--ease-out), opacity 0.3s, margin 0.5s var(--ease-out); 
+}
+.home-btn.hidden { width: 0 !important; opacity: 0 !important; margin: 0 !important; padding: 0 !important; pointer-events: none; }
+.home-btn.hidden + .nav-separator { width: 0 !important; margin: 0 !important; opacity: 0 !important; }
+
+/* Left Navigation (Library) */
+.top-left-nav {
+    position: absolute; top: calc(var(--safe-top) + 15px); left: calc(var(--safe-left) + 15px);
+    z-index: 120; display: flex; flex-direction: column; align-items: flex-start;
+    transition: transform 0.5s var(--ease-out), opacity 0.4s;
+}
+.top-left-nav.hidden { transform: translateX(-20px); opacity: 0; pointer-events: none; }
+
+.icon-btn { background: var(--glass-bg); border: 1px solid var(--border-color); cursor: pointer; width: 44px; height: 44px; display: flex; justify-content: center; align-items: center; border-radius: 50%; color: var(--text-secondary); transition: all 0.3s ease; flex-shrink: 0; }
+.icon-btn:hover { color: var(--text-primary); background: var(--btn-hover-bg); border-color: var(--accent-color); }
+.top-nav .icon-btn { border: none; background: transparent; }
+
+/* Library Popup Styling */
+.library-popup {
+    position: absolute; top: 60px; left: 0; width: 280px; max-height: 70vh;
+    background: var(--modal-bg); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+    border: 1px solid var(--border-color); border-radius: 24px;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4); display: flex; flex-direction: column;
+    z-index: 130; overflow: hidden; transform-origin: top left;
+    transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.library-popup.hidden { transform: scale(0.85) translateY(-10px); opacity: 0; pointer-events: none; }
+
+.library-header { padding: 20px 24px 10px 24px; }
+.library-header h3 { margin: 0; font-weight: 300; font-size: 1.2rem; }
+
+.library-content { flex: 1; overflow-y: auto; padding: 10px 10px; }
+.section-label { text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); font-size: 0.65rem; padding: 0 14px 10px 14px; display: block; opacity: 0.6; }
+
+.library-list { display: flex; flex-direction: column; gap: 4px; }
+.library-item { 
+    display: flex; align-items: center; gap: 12px; padding: 12px 14px;
+    border-radius: 14px; color: var(--text-primary); cursor: pointer;
+    transition: all 0.2s; 
+}
+.library-item:hover { background: rgba(255, 255, 255, 0.05); }
+.library-item.active { background: var(--btn-hover-bg); color: var(--accent-color); }
+
+.library-footer { padding: 15px; border-top: 1px solid var(--border-color); }
+.lib-action-btn { 
+    width: 100%; padding: 12px; background: var(--accent-color); color: #000;
+    border: none; border-radius: 14px; font-weight: 600; font-size: 0.9rem;
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+    cursor: pointer; transition: transform 0.2s, background 0.2s;
+}
+.lib-action-btn:hover { opacity: 0.9; }
+.lib-action-btn:active { transform: scale(0.96); }
+
 .icon-wrapper { display: flex; justify-content: center; align-items: center; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
 .settings-btn:hover .icon-wrapper { transform: rotate(90deg); }
-.home-btn { width: 44px; opacity: 1; overflow: hidden; transition: width 0.5s var(--ease-out), opacity 0.3s; }
-.home-btn.hidden { width: 0 !important; opacity: 0 !important; margin: 0 !important; padding: 0 !important; }
-.home-btn.hidden + .nav-separator { width: 0 !important; margin: 0 !important; opacity: 0 !important; }
 
 /* === 5. HOME MENU === */
 #app { width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in; position: relative; }
@@ -89,8 +148,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .action-buttons { display: flex; flex-direction: column; gap: 18px; width: 100%; }
 .flux-btn { position: relative; width: 100%; min-height: 64px; flex-shrink: 0; background: var(--glass-bg); border: 1px solid var(--border-color); color: var(--text-primary); padding: 20px 32px; border-radius: 18px; font-size: 1.15rem; cursor: pointer; transition: all 0.3s var(--ease-out); display: flex; align-items: center; justify-content: center; gap: 14px; backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); }
 .flux-btn:not(.danger-btn):hover { background: var(--btn-hover-bg); border-color: var(--accent-color); box-shadow: 0 0 30px var(--accent-glow); transform: translateY(-3px); }
-.flux-btn:active { transform: scale(0.97) translateY(0); }
-.flux-btn.danger-btn { border-color: rgba(255, 71, 87, 0.3); color: var(--danger-color); }
+.flux-btn:active { transform: scale(0.97) translateY(0); }.flux-btn.danger-btn { border-color: rgba(255, 71, 87, 0.3); color: var(--danger-color); }
 .flux-btn.danger-btn:hover { background: rgba(255, 71, 87, 0.1); border-color: var(--danger-color); box-shadow: 0 0 30px var(--danger-glow); transform: translateY(-3px); }
 
 /* === 6. TOOLBARS === */
@@ -100,7 +158,8 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
     border: 1px solid var(--border-color); border-radius: 24px; padding: 6px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
     transition: transform 0.6s var(--ease-out), opacity 0.4s;
 }
-.bottom-toolbar.hidden { transform: translate(-50%, 100px); opacity: 0; pointer-events: none; }
+/* Slide-down animation */
+.bottom-toolbar.hidden { transform: translate(-50%, 120px); opacity: 0; pointer-events: none; }
 
 .edit-toolbar {
     position: absolute; bottom: calc(var(--safe-bottom) + 100px); left: 50%; transform: translateX(-50%);
@@ -108,7 +167,8 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
     border: 1px solid var(--border-color); border-radius: 20px; padding: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     transition: all 0.4s var(--ease-out); display: flex; align-items: center;
 }
-.edit-toolbar.hidden { transform: translate(-50%, 20px) scale(0.95); opacity: 0; pointer-events: none; }
+/* Scale-down and slide-down animation */
+.edit-toolbar.hidden { transform: translate(-50%, 40px) scale(0.9); opacity: 0; pointer-events: none; }
 
 .toolbar-scroll-container { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px; }
 .toolbar-scroll-container::-webkit-scrollbar { display: none; }
@@ -124,13 +184,8 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .tool-btn.action svg { width: 22px; height: 22px; }
 .danger-text { color: var(--danger-color) !important; }
 
-/* Color Elements */
-.color-dot { 
-    width: 28px; height: 28px; border-radius: 50%; 
-    border: 1px solid var(--text-primary);
-    cursor: pointer; transition: transform 0.2s, border-color 0.3s; 
-    flex-shrink: 0; position: relative; overflow: hidden;
-}
+/* Color & Stroke Dots */
+.color-dot { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--text-primary); cursor: pointer; transition: transform 0.2s, border-color 0.3s; flex-shrink: 0; position: relative; overflow: hidden; }
 .color-dot:hover { transform: scale(1.15); }
 .color-dot.active { border-width: 2px; border-color: var(--accent-color); transform: scale(1.1); }
 .color-dot.auto { background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); }
@@ -138,23 +193,12 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .color-dot.transparent::after { content: ''; position: absolute; top: 50%; left: 50%; width: 140%; height: 2px; background: #ff4757; transform: translate(-50%, -50%) rotate(-45deg); }
 .color-dot.big { width: 44px; height: 44px; }
 
-/* Stroke Modal Specifics */
+/* Modals & Controls */
 .stroke-controls { display: flex; flex-direction: column; gap: 25px; align-items: center; width: 100%; }
 .numeric-input-group { display: flex; align-items: center; gap: 15px; }
-.step-btn { 
-    width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border-color);
-    background: var(--glass-bg); color: var(--text-primary); font-size: 1.5rem; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
-}
+.step-btn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border-color); background: var(--glass-bg); color: var(--text-primary); font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
 .step-btn:active { background: var(--btn-hover-bg); transform: scale(0.9); }
-
-#input-stroke-number {
-    width: 80px; background: transparent; border: 1px solid var(--border-color);
-    border-radius: 12px; color: var(--text-primary); font-size: 1.2rem;
-    padding: 10px; text-align: center; font-family: monospace;
-}
-#input-stroke-number::-webkit-inner-spin-button { display: none; }
-
+#input-stroke-number { width: 80px; background: transparent; border: 1px solid var(--border-color); border-radius: 12px; color: var(--text-primary); font-size: 1.2rem; padding: 10px; text-align: center; font-family: monospace; }
 .slider-group { width: 100%; padding: 0 10px; }
 .slider-group input[type="range"] { width: 100%; height: 6px; }
 
@@ -170,18 +214,16 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 .shape-opt-btn:hover { background: var(--btn-hover-bg); border-color: var(--accent-color); transform: translateY(-3px); }
 .shape-opt-btn svg { width: 40px; height: 40px; }
 
-/* === 7. MODALS & TOGGLES === */
+/* === 7. MODALS === */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); z-index: 200; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: all 0.3s; }
 .modal-overlay:not(.hidden) { opacity: 1; visibility: visible; }
 .modal-content { background: var(--modal-bg); width: 90%; max-width: 450px; border-radius: 28px; border: 1px solid var(--border-color); padding: 30px; box-shadow: 0 30px 60px rgba(0,0,0,0.6); transform: scale(0.9); transition: transform 0.3s var(--ease-out); display: flex; flex-direction: column; max-height: 85vh; }
 .modal-overlay:not(.hidden) .modal-content { transform: scale(1); }
-
 .small-modal { max-width: 320px; padding: 25px; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 .modal-header h2 { margin: 0; font-weight: 300; font-size: 1.8rem; }
 .close-btn { background: none; border: none; font-size: 2rem; color: var(--text-secondary); cursor: pointer; }
 .modal-divider { height: 1px; background: var(--border-color); margin: 20px 0; width: 100%; }
-
 .color-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; justify-items: center; }
 .color-option-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; }
 
