@@ -20,7 +20,8 @@ class FluxWhiteboard {
             maxScale: 10,
             zoomSensitivity: 0.005,
             handleRadius: 10,
-            hitThreshold: 25 
+            handleHitThreshold: 35, // Increased for mobile precision
+            hitThreshold: 25        // Body selection sensitivity
         };
 
         /** @type {Object} Virtual camera state */
@@ -84,7 +85,6 @@ class FluxWhiteboard {
         this.interaction.selectionBox = null;
         this.interaction.isSelecting = false;
         
-        // Ensure camera is perfectly centered in the current window
         this.view.offsetX = window.innerWidth / 2;
         this.view.offsetY = window.innerHeight / 2;
         this.view.scale = 1;
@@ -182,33 +182,38 @@ class FluxWhiteboard {
         const tool = window.flux.state.activeTool;
         let hitFound = false;
 
-        // 1. Check for handle interaction
+        // 1. PRIORITY: Handle interaction (Strict check on selected elements)
         for (const el of this.interaction.selectedElements) {
             if (el.type === 'line') {
                 const d1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
                 const d2 = Math.hypot(mouse.x - el.p2.x, mouse.y - el.p2.y) * this.view.scale;
 
-                if (d1 < this.config.handleRadius * 1.5) {
+                if (d1 < this.config.handleHitThreshold) {
                     this.interaction.isDraggingHandle = true;
                     this.interaction.draggedElement = el;
                     this.interaction.draggedHandle = 'p1';
-                    return;
-                } else if (d2 < this.config.handleRadius * 1.5) {
+                    return; // Stop here, we are dragging a handle
+                } else if (d2 < this.config.handleHitThreshold) {
                     this.interaction.isDraggingHandle = true;
                     this.interaction.draggedElement = el;
                     this.interaction.draggedHandle = 'p2';
-                    return;
+                    return; // Stop here
                 }
             }
         }
 
-        // 2. Check for element selection/dragging
+        // 2. Element selection/dragging (Avoid triggering if too close to handles)
         if (tool === 'select') {
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (el.type === 'line') {
                     const dist = this.getDistPointToSegment(mouse, el.p1, el.p2) * this.view.scale;
-                    if (dist < this.config.hitThreshold) {
+                    
+                    // Extra safety: Check if we are at least somewhat far from the handles of this line
+                    const distToP1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
+                    const distToP2 = Math.hypot(mouse.x - el.p2.x, mouse.y - el.p2.y) * this.view.scale;
+
+                    if (dist < this.config.hitThreshold && distToP1 > this.config.handleHitThreshold && distToP2 > this.config.handleHitThreshold) {
                         if (!this.interaction.selectedElements.includes(el)) {
                             this.interaction.selectedElements = [el];
                         }
@@ -220,7 +225,7 @@ class FluxWhiteboard {
                 }
             }
 
-            // 3. If no hit, start marquee selection
+            // 3. Marquee selection
             if (!hitFound) {
                 this.interaction.selectedElements = [];
                 this.interaction.isSelecting = true;
@@ -231,7 +236,7 @@ class FluxWhiteboard {
             }
         }
 
-        // 4. Handle Panning
+        // 4. Panning
         if (e.shiftKey || e.button === 1 || tool === 'pan') {
             this.interaction.isPanning = true;
             this.interaction.lastMouseX = e.clientX;

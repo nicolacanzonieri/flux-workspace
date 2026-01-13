@@ -131,7 +131,6 @@ class FluxApp {
     }
 
     startNewBoard() {
-        // RESET BOARD & CENTER VIEW
         if(this.whiteboard) {
             this.whiteboard.clearBoard();
         }
