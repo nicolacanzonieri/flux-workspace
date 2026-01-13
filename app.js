@@ -81,7 +81,12 @@ class FluxApp {
 
         this.dom.toolBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                this.selectTool(btn.getAttribute('data-tool'));
+                const tool = btn.getAttribute('data-tool');
+                if (tool === 'line') {
+                    this.createLineAction();
+                } else {
+                    this.selectTool(tool);
+                }
             });
         });
 
@@ -95,7 +100,11 @@ class FluxApp {
             const isLight = e.target.checked;
             document.body.classList.toggle('light-mode', isLight);
             localStorage.setItem('flux-theme', isLight ? 'light' : 'dark');
-            if(this.whiteboard) this.whiteboard.render();
+            
+            // SYNC ELEMENT COLORS WITH NEW THEME
+            if(this.whiteboard) {
+                this.whiteboard.updateThemeColors(isLight);
+            }
         });
 
         this.dom.gridToggle.addEventListener('change', (e) => {
@@ -104,8 +113,21 @@ class FluxApp {
             if(this.whiteboard) this.whiteboard.setGridEnabled(isEnabled);
         });
 
-        // RE-BIND RESET BUTTON
         this.dom.btnHardReset.addEventListener('click', () => this.hardResetApp());
+    }
+
+    /**
+     * @method createLineAction
+     * @description Logic triggered when the Line tool button is clicked.
+     */
+    createLineAction() {
+        if (!this.whiteboard) return;
+        
+        const isLightMode = document.body.classList.contains('light-mode');
+        const lineColor = isLightMode ? '#1a1a1d' : '#ffffff';
+        
+        this.whiteboard.addLine(lineColor);
+        this.selectTool('select');
     }
 
     selectTool(toolId) {
@@ -132,45 +154,25 @@ class FluxApp {
         this.dom.menu.classList.remove('hidden');
     }
 
-    /**
-     * @method hardResetApp
-     * @description Completely clears app state and reloads from server.
-     */
     async hardResetApp() {
         const confirmed = confirm("This action will clear all local settings and force a fresh download of Flux Workspace. Proceed?");
-        
         if(!confirmed) return;
 
-        console.log("Flux: Resetting system...");
-
         try {
-            // 1. Unregister Service Workers
             if (window.navigator.serviceWorker) {
                 const regs = await navigator.serviceWorker.getRegistrations();
-                for (let r of regs) {
-                    await r.unregister();
-                }
+                for (let r of regs) await r.unregister();
             }
-
-            // 2. Clear Caches
             if (window.caches) {
                 const names = await caches.keys();
-                for (let n of names) {
-                    await caches.delete(n);
-                }
+                for (let n of names) await caches.delete(n);
             }
-
-            // 3. Clear Storage
             localStorage.clear();
             sessionStorage.clear();
-
-            // 4. Final step: Hard reload
-            console.log("Flux: Reset complete. Reloading...");
             window.location.reload(true);
-            
         } catch (e) {
             console.error("Flux Reset Failed:", e);
-            window.location.reload(); // Last resort
+            window.location.reload();
         }
     }
 }
