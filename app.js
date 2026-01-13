@@ -32,12 +32,10 @@ class FluxApp {
             gridToggle: document.getElementById('grid-toggle'),
             fileInput: document.getElementById('file-input'),
 
-            // Edit Bar Elements
             btnColorPicker: document.getElementById('btn-color-picker'),
             btnStrokePicker: document.getElementById('btn-stroke-picker'),
             colorDots: document.querySelectorAll('#color-modal .color-dot'),
             
-            // Stroke Control Elements
             strokeSlider: document.getElementById('input-stroke-slider'),
             strokeNumber: document.getElementById('input-stroke-number'),
             btnStrokeMinus: document.getElementById('btn-stroke-minus'),
@@ -109,7 +107,6 @@ class FluxApp {
             });
         });
 
-        // Modals management
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
         this.dom.btnCloseSettings.addEventListener('click', () => this.dom.settingsModal.classList.add('hidden'));
         
@@ -140,7 +137,6 @@ class FluxApp {
 
         this.dom.btnHardReset.addEventListener('click', () => this.hardResetApp());
 
-        // Color Selection
         this.dom.colorDots.forEach(dot => {
             dot.addEventListener('click', () => {
                 const color = dot.getAttribute('data-color');
@@ -159,7 +155,6 @@ class FluxApp {
             });
         });
 
-        // Advanced Stroke Width Logic
         const handleWidthChange = (val) => {
             const num = Math.min(Math.max(parseInt(val) || 1, 1), 50);
             this.updateSelectedProperty(el => el.width = num);
@@ -194,10 +189,6 @@ class FluxApp {
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
 
-    /**
-     * @method syncStrokeUI
-     * @description Keeps all width controls (button, slider, number) in sync.
-     */
     syncStrokeUI(val) {
         this.dom.btnStrokePicker.textContent = `${val}px`;
         this.dom.strokeSlider.value = val;

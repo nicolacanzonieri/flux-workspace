@@ -387,6 +387,7 @@ class FluxWhiteboard {
                 this.ctx.lineCap = 'round';
                 this.ctx.stroke();
                 
+                // Draw Arrowheads with dynamic scaling and cap compensation
                 if (el.arrowStart) this.drawArrowhead(el.p2, el.p1, el.color, el.width);
                 if (el.arrowEnd) this.drawArrowhead(el.p1, el.p2, el.color, el.width);
 
@@ -399,15 +400,32 @@ class FluxWhiteboard {
         });
     }
 
+    /**
+     * @method drawArrowhead
+     * @description Draws an arrowhead that scales with line width and compensates for rounded caps.
+     */
     drawArrowhead(from, to, color, width) {
-        const headlen = 10 * this.view.scale + width * this.view.scale;
+        // Scaling head length proportional to width (min 10, scales up with thickness)
+        const headlen = (width * 4 + 6) * this.view.scale;
         const angle = Math.atan2(to.y - from.y, to.x - from.x);
         const screenTo = this.worldToScreen(to.x, to.y);
 
+        // Compensation: Shift the arrow tip forward by half the line width 
+        // to ensure it perfectly covers the rounded cap of the line.
+        const tipX = screenTo.x + (width / 2 * this.view.scale) * Math.cos(angle);
+        const tipY = screenTo.y + (width / 2 * this.view.scale) * Math.sin(angle);
+
         this.ctx.beginPath();
-        this.ctx.moveTo(screenTo.x, screenTo.y);
-        this.ctx.lineTo(screenTo.x - headlen * Math.cos(angle - Math.PI / 6), screenTo.y - headlen * Math.sin(angle - Math.PI / 6));
-        this.ctx.lineTo(screenTo.x - headlen * Math.cos(angle + Math.PI / 6), screenTo.y - headlen * Math.sin(angle + Math.PI / 6));
+        this.ctx.moveTo(tipX, tipY);
+        // Use a wider spread angle (PI/6) for thick arrows to remain visible
+        this.ctx.lineTo(
+            tipX - headlen * Math.cos(angle - Math.PI / 6), 
+            tipY - headlen * Math.sin(angle - Math.PI / 6)
+        );
+        this.ctx.lineTo(
+            tipX - headlen * Math.cos(angle + Math.PI / 6), 
+            tipY - headlen * Math.sin(angle + Math.PI / 6)
+        );
         this.ctx.closePath();
         this.ctx.fillStyle = color;
         this.ctx.fill();
