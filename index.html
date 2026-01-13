@@ -74,7 +74,8 @@
                 </div>
                 <div class="toolbar-divider"></div>
                 <div class="edit-group">
-                    <input type="range" id="input-stroke-width" min="1" max="20" value="3" step="1">
+                    <!-- New stroke picker button -->
+                    <button id="btn-stroke-picker" class="tool-btn text-btn" title="Change thickness">3px</button>
                 </div>
                 <div class="toolbar-divider"></div>
                 <div class="edit-group">
@@ -215,6 +216,26 @@
                     <button class="color-dot big" data-color="#ffa502" style="background:#ffa502"></button>
                     <button class="color-dot big" data-color="#a29bfe" style="background:#a29bfe"></button>
                     <button class="color-dot big" data-color="#fd79a8" style="background:#fd79a8"></button>
+                </div>
+            </div>
+        </div>
+
+        <!-- STROKE WIDTH MODAL -->
+        <div id="stroke-modal" class="modal-overlay hidden">
+            <div class="modal-content small-modal">
+                <div class="modal-header">
+                    <h2>Thickness</h2>
+                    <button id="btn-close-stroke" class="close-btn">×</button>
+                </div>
+                <div class="stroke-controls">
+                    <div class="numeric-input-group">
+                        <button id="btn-stroke-minus" class="step-btn">−</button>
+                        <input type="number" id="input-stroke-number" min="1" max="50" value="3">
+                        <button id="btn-stroke-plus" class="step-btn">+</button>
+                    </div>
+                    <div class="slider-group">
+                        <input type="range" id="input-stroke-slider" min="1" max="50" value="3" step="1">
+                    </div>
                 </div>
             </div>
         </div>

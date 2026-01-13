@@ -24,14 +24,25 @@ class FluxApp {
             
             settingsModal: document.getElementById('settings-modal'),
             colorModal: document.getElementById('color-modal'),
+            strokeModal: document.getElementById('stroke-modal'),
             btnCloseColor: document.getElementById('btn-close-color'),
+            btnCloseStroke: document.getElementById('btn-close-stroke'),
+            
             themeToggle: document.getElementById('theme-toggle'),
             gridToggle: document.getElementById('grid-toggle'),
             fileInput: document.getElementById('file-input'),
 
+            // Edit Bar Elements
             btnColorPicker: document.getElementById('btn-color-picker'),
+            btnStrokePicker: document.getElementById('btn-stroke-picker'),
             colorDots: document.querySelectorAll('#color-modal .color-dot'),
-            strokeInput: document.getElementById('input-stroke-width'),
+            
+            // Stroke Control Elements
+            strokeSlider: document.getElementById('input-stroke-slider'),
+            strokeNumber: document.getElementById('input-stroke-number'),
+            btnStrokeMinus: document.getElementById('btn-stroke-minus'),
+            btnStrokePlus: document.getElementById('btn-stroke-plus'),
+
             styleBtns: document.querySelectorAll('[data-style]'),
             arrowBtns: document.querySelectorAll('[data-arrow]'),
             btnDuplicate: document.getElementById('btn-duplicate'),
@@ -98,12 +109,17 @@ class FluxApp {
             });
         });
 
+        // Modals management
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
         this.dom.btnCloseSettings.addEventListener('click', () => this.dom.settingsModal.classList.add('hidden'));
+        
         this.dom.btnColorPicker.addEventListener('click', () => this.dom.colorModal.classList.remove('hidden'));
         this.dom.btnCloseColor.addEventListener('click', () => this.dom.colorModal.classList.add('hidden'));
+        
+        this.dom.btnStrokePicker.addEventListener('click', () => this.dom.strokeModal.classList.remove('hidden'));
+        this.dom.btnCloseStroke.addEventListener('click', () => this.dom.strokeModal.classList.add('hidden'));
 
-        [this.dom.settingsModal, this.dom.colorModal].forEach(modal => {
+        [this.dom.settingsModal, this.dom.colorModal, this.dom.strokeModal].forEach(modal => {
             modal.addEventListener('click', (e) => {
                 if (e.target === modal) modal.classList.add('hidden');
             });
@@ -124,6 +140,7 @@ class FluxApp {
 
         this.dom.btnHardReset.addEventListener('click', () => this.hardResetApp());
 
+        // Color Selection
         this.dom.colorDots.forEach(dot => {
             dot.addEventListener('click', () => {
                 const color = dot.getAttribute('data-color');
@@ -137,15 +154,22 @@ class FluxApp {
                         el.isAutoColor = false;
                     }
                 });
-                
                 this.dom.colorModal.classList.add('hidden');
                 this.syncPickerButtonAppearance(color);
             });
         });
 
-        this.dom.strokeInput.addEventListener('input', (e) => {
-            this.updateSelectedProperty(el => el.width = parseInt(e.target.value));
-        });
+        // Advanced Stroke Width Logic
+        const handleWidthChange = (val) => {
+            const num = Math.min(Math.max(parseInt(val) || 1, 1), 50);
+            this.updateSelectedProperty(el => el.width = num);
+            this.syncStrokeUI(num);
+        };
+
+        this.dom.strokeSlider.addEventListener('input', (e) => handleWidthChange(e.target.value));
+        this.dom.strokeNumber.addEventListener('change', (e) => handleWidthChange(e.target.value));
+        this.dom.btnStrokeMinus.addEventListener('click', () => handleWidthChange(parseInt(this.dom.strokeNumber.value) - 1));
+        this.dom.btnStrokePlus.addEventListener('click', () => handleWidthChange(parseInt(this.dom.strokeNumber.value) + 1));
 
         this.dom.styleBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -168,6 +192,16 @@ class FluxApp {
 
         this.dom.btnDuplicate.addEventListener('click', () => this.whiteboard.duplicateSelected());
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
+    }
+
+    /**
+     * @method syncStrokeUI
+     * @description Keeps all width controls (button, slider, number) in sync.
+     */
+    syncStrokeUI(val) {
+        this.dom.btnStrokePicker.textContent = `${val}px`;
+        this.dom.strokeSlider.value = val;
+        this.dom.strokeNumber.value = val;
     }
 
     syncPickerButtonAppearance(color) {
@@ -193,7 +227,7 @@ class FluxApp {
             this.dom.editBar.classList.remove('hidden');
             if (selected.length === 1) {
                 const el = selected[0];
-                this.dom.strokeInput.value = el.width;
+                this.syncStrokeUI(el.width);
                 this.dom.styleBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-style') === el.dashStyle));
                 this.dom.arrowBtns.forEach(b => {
                     const type = b.getAttribute('data-arrow');
@@ -209,6 +243,7 @@ class FluxApp {
         } else {
             this.dom.editBar.classList.add('hidden');
             this.dom.colorModal.classList.add('hidden');
+            this.dom.strokeModal.classList.add('hidden');
         }
     }
 

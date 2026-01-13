@@ -113,36 +113,51 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .toolbar-scroll-container { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px; }
 .toolbar-scroll-container::-webkit-scrollbar { display: none; }
 
-.edit-group { display: flex; align-items: center; gap: 8px; padding: 0 8px; }
+.edit-group { position: relative; display: flex; align-items: center; gap: 8px; padding: 0 8px; }
 
 .tool-btn { background: transparent; border: none; cursor: pointer !important; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; border-radius: 16px; color: var(--text-secondary); transition: all 0.2s ease; flex-shrink: 0; }
 .tool-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
 .tool-btn.active { background: var(--btn-hover-bg); color: var(--accent-color); box-shadow: inset 0 0 10px var(--accent-glow); }
 .tool-btn.mini { width: 36px; height: 36px; border-radius: 10px; }
+.tool-btn.text-btn { width: auto; padding: 0 12px; font-weight: 600; font-size: 0.85rem; font-family: monospace; color: var(--text-primary); border: 1px solid var(--border-color); }
 .tool-btn.mini svg { width: 20px; height: 20px; }
 .tool-btn.action svg { width: 22px; height: 22px; }
 .danger-text { color: var(--danger-color) !important; }
 
-/* Color Picker Button & Dots */
+/* Color Elements */
 .color-dot { 
     width: 28px; height: 28px; border-radius: 50%; 
-    border: 1px solid var(--text-primary); /* Solido Nero/Bianco in base al tema */
+    border: 1px solid var(--text-primary);
     cursor: pointer; transition: transform 0.2s, border-color 0.3s; 
     flex-shrink: 0; position: relative; overflow: hidden;
 }
 .color-dot:hover { transform: scale(1.15); }
 .color-dot.active { border-width: 2px; border-color: var(--accent-color); transform: scale(1.1); }
-
-/* Improved Auto Icon (Perfectly circular split) */
-.color-dot.auto { 
-    background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); 
-}
+.color-dot.auto { background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); }
 .color-dot.big { width: 44px; height: 44px; }
 
-input[type="range"] { -webkit-appearance: none; width: 80px; height: 4px; background: var(--border-color); border-radius: 2px; }
-input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--text-primary); border-radius: 50%; cursor: pointer; }
+/* Stroke Modal Specifics */
+.stroke-controls { display: flex; flex-direction: column; gap: 25px; align-items: center; width: 100%; }
+.numeric-input-group { display: flex; align-items: center; gap: 15px; }
+.step-btn { 
+    width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border-color);
+    background: var(--glass-bg); color: var(--text-primary); font-size: 1.5rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+}
+.step-btn:active { background: var(--btn-hover-bg); transform: scale(0.9); }
 
-.toolbar-divider { width: 1px; height: 24px; background: var(--border-color); margin: 0 6px; flex-shrink: 0; }
+#input-stroke-number {
+    width: 80px; background: transparent; border: 1px solid var(--border-color);
+    border-radius: 12px; color: var(--text-primary); font-size: 1.2rem;
+    padding: 10px; text-align: center; font-family: monospace;
+}
+#input-stroke-number::-webkit-inner-spin-button { display: none; }
+
+.slider-group { width: 100%; padding: 0 10px; }
+.slider-group input[type="range"] { width: 100%; height: 6px; }
+
+input[type="range"] { -webkit-appearance: none; background: var(--border-color); border-radius: 4px; }
+input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; background: var(--text-primary); border-radius: 50%; cursor: pointer; border: 2px solid var(--accent-color); }
 
 /* === 7. MODALS & TOGGLES === */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); z-index: 200; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: all 0.3s; }
