@@ -124,7 +124,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .tool-btn.action svg { width: 22px; height: 22px; }
 .danger-text { color: var(--danger-color) !important; }
 
-/* Color Picker Button & Dots */
+/* Color Elements */
 .color-dot { 
     width: 28px; height: 28px; border-radius: 50%; 
     border: 1px solid var(--text-primary);
@@ -133,19 +133,9 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 }
 .color-dot:hover { transform: scale(1.15); }
 .color-dot.active { border-width: 2px; border-color: var(--accent-color); transform: scale(1.1); }
-
 .color-dot.auto { background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); }
-
-/* Transparent/Empty Dot Icon */
-.color-dot.transparent { 
-    background-color: transparent; 
-}
-.color-dot.transparent::after {
-    content: ''; position: absolute; top: 50%; left: 50%;
-    width: 140%; height: 2px; background: #ff4757;
-    transform: translate(-50%, -50%) rotate(-45deg);
-}
-
+.color-dot.transparent { background-color: transparent; }
+.color-dot.transparent::after { content: ''; position: absolute; top: 50%; left: 50%; width: 140%; height: 2px; background: #ff4757; transform: translate(-50%, -50%) rotate(-45deg); }
 .color-dot.big { width: 44px; height: 44px; }
 
 /* Stroke Modal Specifics */

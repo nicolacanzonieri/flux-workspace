@@ -1,7 +1,6 @@
 /**
  * @class FluxWhiteboard
  * @description Advanced rendering engine for the infinite whiteboard.
- * Handles coordinates, zoom math, and high-performance canvas drawing.
  */
 class FluxWhiteboard {
     /**
@@ -24,34 +23,15 @@ class FluxWhiteboard {
             hitThreshold: 25 
         };
 
-        /** @type {Object} Virtual camera state */
-        this.view = {
-            offsetX: window.innerWidth / 2,
-            offsetY: window.innerHeight / 2,
-            scale: 1
-        };
-
-        /** @type {Object} Real-time interaction data */
+        this.view = { offsetX: window.innerWidth / 2, offsetY: window.innerHeight / 2, scale: 1 };
         this.interaction = {
-            isPanning: false,
-            isDraggingHandle: false,
-            isDraggingElements: false,
-            isDrawingPath: false,
-            isSelecting: false,
-            selectionBox: null,
-            selectedElements: [],
-            draggedElement: null,
-            draggedHandle: null, 
-            lastMouseX: 0,
-            lastMouseY: 0,
-            dragLastWorldPos: { x: 0, y: 0 },
-            initialTouchDistance: 0,
-            initialTouchCenter: { x: 0, y: 0 }
+            isPanning: false, isDraggingHandle: false, isDraggingElements: false, isDrawingPath: false,
+            isSelecting: false, selectionBox: null, selectedElements: [],
+            draggedElement: null, draggedHandle: null, lastMouseX: 0, lastMouseY: 0,
+            dragLastWorldPos: { x: 0, y: 0 }, initialTouchDistance: 0, initialTouchCenter: { x: 0, y: 0 }
         };
 
-        /** @type {Array} Collection of whiteboard elements */
         this.elements = [];
-
         this.init();
     }
 
@@ -68,84 +48,50 @@ class FluxWhiteboard {
     }
 
     clearBoard() {
-        this.elements = [];
-        this.interaction.selectedElements = [];
-        this.interaction.selectionBox = null;
-        this.interaction.isSelecting = false;
-        this.view.offsetX = window.innerWidth / 2;
-        this.view.offsetY = window.innerHeight / 2;
-        this.view.scale = 1;
+        this.elements = []; this.interaction.selectedElements = []; this.interaction.selectionBox = null;
+        this.view.offsetX = window.innerWidth / 2; this.view.offsetY = window.innerHeight / 2; this.view.scale = 1;
         this.render();
     }
 
-    screenToWorld(x, y) {
-        return {
-            x: (x - this.view.offsetX) / this.view.scale,
-            y: (y - this.view.offsetY) / this.view.scale
-        };
-    }
-
-    worldToScreen(x, y) {
-        return {
-            x: x * this.view.scale + this.view.offsetX,
-            y: y * this.view.scale + this.view.offsetY
-        };
-    }
+    screenToWorld(x, y) { return { x: (x - this.view.offsetX) / this.view.scale, y: (y - this.view.offsetY) / this.view.scale }; }
+    worldToScreen(x, y) { return { x: x * this.view.scale + this.view.offsetX, y: y * this.view.scale + this.view.offsetY }; }
 
     addLine(color) {
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newLine = {
-            id: Date.now(),
-            type: 'line',
-            p1: { x: center.x - 50, y: center.y },
-            p2: { x: center.x + 50, y: center.y },
-            color: color,
-            isAutoColor: true,
-            width: 3,
-            dashStyle: 'solid',
-            arrowStart: false,
-            arrowEnd: false
-        };
-        this.elements.push(newLine);
-        this.interaction.selectedElements = [newLine]; 
-        this.render();
-        if(window.flux) window.flux.updateEditBar();
+        const newLine = { id: Date.now(), type: 'line', p1: { x: center.x - 50, y: center.y }, p2: { x: center.x + 50, y: center.y }, color, isAutoColor: true, width: 3, dashStyle: 'solid', arrowStart: false, arrowEnd: false };
+        this.elements.push(newLine); this.interaction.selectedElements = [newLine]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
     startPath(color) {
-        const newLine = {
-            id: Date.now(),
-            type: 'pen',
-            points: [],
-            color: color,
-            isAutoColor: true,
-            width: 3,
-            dashStyle: 'solid'
-        };
-        this.elements.push(newLine);
-        this.interaction.draggedElement = newLine;
-        this.interaction.isDrawingPath = true;
+        const newLine = { id: Date.now(), type: 'pen', points: [], color, isAutoColor: true, width: 3, dashStyle: 'solid' };
+        this.elements.push(newLine); this.interaction.draggedElement = newLine; this.interaction.isDrawingPath = true;
     }
 
     addShape(shapeType, color) {
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newShape = {
+        const newShape = { id: Date.now(), type: 'shape', shapeType, x: center.x - 100, y: center.y - 100, width: 200, height: 200, color, fillColor: 'transparent', isAutoColor: true, isAutoFill: false, strokeWidth: 3, dashStyle: 'solid' };
+        this.elements.push(newShape); this.interaction.selectedElements = [newShape]; this.render(); if(window.flux) window.flux.updateEditBar();
+    }
+
+    /**
+     * @method addText
+     * @description Spawns a new text block element.
+     */
+    addText(color) {
+        const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+        const newText = {
             id: Date.now(),
-            type: 'shape',
-            shapeType: shapeType,
-            x: center.x - 100,
-            y: center.y - 100,
-            width: 200,
-            height: 200,
+            type: 'text',
+            content: "Double tap to edit text...",
+            x: center.x - 100, y: center.y - 40,
+            width: 200, height: 80,
             color: color,
-            fillColor: 'transparent',
             isAutoColor: true,
-            isAutoFill: false,
-            strokeWidth: 3,
-            dashStyle: 'solid'
+            fontSize: 16,
+            hasOverflow: false
         };
-        this.elements.push(newShape);
-        this.interaction.selectedElements = [newShape];
+        this.elements.push(newText);
+        this.interaction.selectedElements = [newText];
         this.render();
         if(window.flux) window.flux.updateEditBar();
     }
@@ -153,29 +99,19 @@ class FluxWhiteboard {
     duplicateSelected() {
         const newSelected = [];
         this.interaction.selectedElements.forEach(el => {
-            const clone = JSON.parse(JSON.stringify(el));
-            clone.id = Date.now() + Math.random();
+            const clone = JSON.parse(JSON.stringify(el)); clone.id = Date.now() + Math.random();
             const offset = 20 / this.view.scale;
-            if (clone.type === 'line') {
-                clone.p1.x += offset; clone.p1.y += offset;
-                clone.p2.x += offset; clone.p2.y += offset;
-            } else if (clone.type === 'pen') {
-                clone.points.forEach(p => { p.x += offset; p.y += offset; });
-            } else if (clone.type === 'shape') {
-                clone.x += offset; clone.y += offset;
-            }
-            this.elements.push(clone);
-            newSelected.push(clone);
+            if (clone.type === 'line') { clone.p1.x += offset; clone.p1.y += offset; clone.p2.x += offset; clone.p2.y += offset; }
+            else if (clone.type === 'pen') { clone.points.forEach(p => { p.x += offset; p.y += offset; }); }
+            else if (clone.type === 'shape' || clone.type === 'text') { clone.x += offset; clone.y += offset; }
+            this.elements.push(clone); newSelected.push(clone);
         });
-        this.interaction.selectedElements = newSelected;
-        this.render();
+        this.interaction.selectedElements = newSelected; this.render();
     }
 
     deleteSelected() {
         this.elements = this.elements.filter(el => !this.interaction.selectedElements.includes(el));
-        this.interaction.selectedElements = [];
-        this.render();
-        if(window.flux) window.flux.updateEditBar();
+        this.interaction.selectedElements = []; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
     updateThemeColors(isLightMode) {
@@ -189,119 +125,76 @@ class FluxWhiteboard {
 
     handleWheel(e) {
         e.preventDefault();
-        if (e.ctrlKey) {
-            const factor = 1 - e.deltaY * this.config.zoomSensitivity;
-            this.applyZoom(factor, e.clientX, e.clientY);
-        } else {
-            this.view.offsetX -= e.deltaX;
-            this.view.offsetY -= e.deltaY;
-        }
+        if (e.ctrlKey) this.applyZoom(1 - e.deltaY * this.config.zoomSensitivity, e.clientX, e.clientY);
+        else { this.view.offsetX -= e.deltaX; this.view.offsetY -= e.deltaY; }
         this.render();
     }
 
     applyZoom(factor, x, y) {
         const newScale = Math.min(Math.max(this.view.scale * factor, this.config.minScale), this.config.maxScale);
         if (newScale === this.view.scale) return;
-        const mouseWorld = this.screenToWorld(x, y);
-        this.view.scale = newScale;
-        this.view.offsetX = x - mouseWorld.x * this.view.scale;
-        this.view.offsetY = y - mouseWorld.y * this.view.scale;
+        const mouseWorld = this.screenToWorld(x, y); this.view.scale = newScale;
+        this.view.offsetX = x - mouseWorld.x * this.view.scale; this.view.offsetY = y - mouseWorld.y * this.view.scale;
     }
 
     handleMouseDown(e) {
         const mouse = this.screenToWorld(e.clientX, e.clientY);
         const tool = window.flux.state.activeTool;
-        
         if (e.shiftKey || e.button === 1 || tool === 'pan') {
-            this.interaction.isPanning = true;
-            this.interaction.lastMouseX = e.clientX;
-            this.interaction.lastMouseY = e.clientY;
-            this.canvas.classList.add('panning');
-            this.render();
-            return;
+            this.interaction.isPanning = true; this.interaction.lastMouseX = e.clientX;
+            this.interaction.lastMouseY = e.clientY; this.canvas.classList.add('panning');
+            this.render(); return;
         }
-
         if (tool === 'pen') {
             this.interaction.selectedElements = [];
             const isLight = document.body.classList.contains('light-mode');
-            const color = isLight ? '#1a1a1d' : '#ffffff';
-            this.startPath(color);
+            this.startPath(isLight ? '#1a1a1d' : '#ffffff');
             this.interaction.draggedElement.points.push({ x: mouse.x, y: mouse.y });
-            this.render();
-            return;
+            this.render(); return;
         }
-
         for (const el of this.interaction.selectedElements) {
             const handles = this.getElementHandles(el);
             for (let i = 0; i < handles.length; i++) {
                 const h = handles[i];
-                const d = Math.hypot(mouse.x - h.x, mouse.y - h.y) * this.view.scale;
-                if (d < this.config.handleHitThreshold) {
-                    this.interaction.isDraggingHandle = true;
-                    this.interaction.draggedElement = el;
-                    this.interaction.draggedHandle = i;
-                    return;
+                if (Math.hypot(mouse.x - h.x, mouse.y - h.y) * this.view.scale < this.config.handleHitThreshold) {
+                    this.interaction.isDraggingHandle = true; this.interaction.draggedElement = el;
+                    this.interaction.draggedHandle = i; return;
                 }
             }
         }
-
         if (tool === 'select') {
             let hitFound = false;
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (this.isPointInElement(mouse, el)) {
-                    if (!this.interaction.selectedElements.includes(el)) {
-                        this.interaction.selectedElements = [el];
-                    }
-                    this.interaction.isDraggingElements = true;
-                    this.interaction.dragLastWorldPos = mouse;
-                    hitFound = true;
-                    break;
+                    if (!this.interaction.selectedElements.includes(el)) this.interaction.selectedElements = [el];
+                    this.interaction.isDraggingElements = true; this.interaction.dragLastWorldPos = mouse;
+                    hitFound = true; break;
                 }
             }
-            if (!hitFound) {
-                this.interaction.selectedElements = [];
-                this.interaction.isSelecting = true;
-                this.interaction.selectionBox = { startX: mouse.x, startY: mouse.y, currentX: mouse.x, currentY: mouse.y };
-            }
+            if (!hitFound) { this.interaction.selectedElements = []; this.interaction.isSelecting = true; this.interaction.selectionBox = { startX: mouse.x, startY: mouse.y, currentX: mouse.x, currentY: mouse.y }; }
         }
-
-        this.render();
-        if(window.flux) window.flux.updateEditBar();
+        this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
     handleMouseMove(e) {
         const mouse = this.screenToWorld(e.clientX, e.clientY);
         if (this.interaction.isPanning) {
-            const dx = e.clientX - this.interaction.lastMouseX;
-            const dy = e.clientY - this.interaction.lastMouseY;
-            this.view.offsetX += dx; this.view.offsetY += dy;
-            this.interaction.lastMouseX = e.clientX; this.interaction.lastMouseY = e.clientY;
-            this.render(); return;
+            this.view.offsetX += e.clientX - this.interaction.lastMouseX; this.view.offsetY += e.clientY - this.interaction.lastMouseY;
+            this.interaction.lastMouseX = e.clientX; this.interaction.lastMouseY = e.clientY; this.render(); return;
         }
-        if (this.interaction.isDrawingPath) {
-            this.interaction.draggedElement.points.push({ x: mouse.x, y: mouse.y });
-            this.render(); return;
-        }
-        if (this.interaction.isDraggingHandle) {
-            this.resizeElement(this.interaction.draggedElement, this.interaction.draggedHandle, mouse);
-            this.render(); return;
-        }
+        if (this.interaction.isDrawingPath) { this.interaction.draggedElement.points.push({ x: mouse.x, y: mouse.y }); this.render(); return; }
+        if (this.interaction.isDraggingHandle) { this.resizeElement(this.interaction.draggedElement, this.interaction.draggedHandle, mouse); this.render(); return; }
         if (this.interaction.isDraggingElements) {
-            const dx = mouse.x - this.interaction.dragLastWorldPos.x;
-            const dy = mouse.y - this.interaction.dragLastWorldPos.y;
+            const dx = mouse.x - this.interaction.dragLastWorldPos.x, dy = mouse.y - this.interaction.dragLastWorldPos.y;
             this.interaction.selectedElements.forEach(el => {
                 if (el.type === 'line') { el.p1.x += dx; el.p1.y += dy; el.p2.x += dx; el.p2.y += dy; }
                 else if (el.type === 'pen') { el.points.forEach(p => { p.x += dx; p.y += dy; }); }
-                else if (el.type === 'shape') { el.x += dx; el.y += dy; }
+                else if (el.type === 'shape' || el.type === 'text') { el.x += dx; el.y += dy; }
             });
-            this.interaction.dragLastWorldPos = mouse;
-            this.render(); return;
+            this.interaction.dragLastWorldPos = mouse; this.render(); return;
         }
-        if (this.interaction.isSelecting) {
-            this.interaction.selectionBox.currentX = mouse.x; this.interaction.selectionBox.currentY = mouse.y;
-            this.render(); return;
-        }
+        if (this.interaction.isSelecting) { this.interaction.selectionBox.currentX = mouse.x; this.interaction.selectionBox.currentY = mouse.y; this.render(); return; }
     }
 
     handleMouseUp() {
@@ -316,27 +209,17 @@ class FluxWhiteboard {
 
     getElementHandles(el) {
         if (el.type === 'line') return [el.p1, el.p2];
-        if (el.type === 'shape') {
+        if (el.type === 'shape' || el.type === 'text') {
             const {x, y, width: w, height: h} = el;
-            return [
-                {x, y}, {x: x+w/2, y}, {x: x+w, y},
-                {x: x+w, y: y+h/2}, {x: x+w, y: y+h},
-                {x: x+w/2, y: y+h}, {x, y: y+h},
-                {x, y: y+h/2}
-            ];
+            return [{x, y}, {x: x+w/2, y}, {x: x+w, y}, {x: x+w, y: y+h/2}, {x: x+w, y: y+h}, {x: x+w/2, y: y+h}, {x, y: y+h}, {x, y: y+h/2}];
         }
         return [];
     }
 
     resizeElement(el, handleIdx, mouse) {
-        if (el.type === 'line') {
-            const key = handleIdx === 0 ? 'p1' : 'p2';
-            el[key].x = mouse.x; el[key].y = mouse.y;
-            return;
-        }
-        if (el.type === 'shape') {
-            const minSize = 10;
-            const right = el.x + el.width; const bottom = el.y + el.height;
+        if (el.type === 'line') { const key = handleIdx === 0 ? 'p1' : 'p2'; el[key].x = mouse.x; el[key].y = mouse.y; return; }
+        if (el.type === 'shape' || el.type === 'text') {
+            const minSize = 20, right = el.x + el.width, bottom = el.y + el.height;
             switch(handleIdx) {
                 case 0: el.width = right - mouse.x; el.height = bottom - mouse.y; el.x = mouse.x; el.y = mouse.y; break;
                 case 1: el.height = bottom - mouse.y; el.y = mouse.y; break;
@@ -352,32 +235,23 @@ class FluxWhiteboard {
     }
 
     isPointInElement(p, el) {
-        const thicknessThreshold = ((el.strokeWidth || el.width || 3) * this.view.scale) / 2 + 15;
-        const effectiveHitThreshold = Math.max(this.config.hitThreshold, thicknessThreshold);
-        if (el.type === 'line') {
-            const dist = this.getDistPointToSegment(p, el.p1, el.p2) * this.view.scale;
-            return dist < effectiveHitThreshold && Math.hypot(p.x - el.p1.x, p.y - el.p1.y) * this.view.scale > this.config.handleHitThreshold && Math.hypot(p.x - el.p2.x, p.y - el.p2.y) * this.view.scale > this.config.handleHitThreshold;
+        if (el.type === 'line' || el.type === 'pen') {
+            const effectiveHitThreshold = Math.max(this.config.hitThreshold, ((el.strokeWidth || el.width || 3) * this.view.scale) / 2 + 15);
+            if (el.type === 'line') return this.getDistPointToSegment(p, el.p1, el.p2) * this.view.scale < effectiveHitThreshold;
+            return el.points.some((pt, idx) => idx < el.points.length - 1 && this.getDistPointToSegment(p, pt, el.points[idx+1]) * this.view.scale < effectiveHitThreshold);
         }
-        if (el.type === 'pen') {
-            for (let j = 0; j < el.points.length - 1; j++) {
-                if (this.getDistPointToSegment(p, el.points[j], el.points[j+1]) * this.view.scale < effectiveHitThreshold) return true;
-            }
-        }
-        if (el.type === 'shape') {
-            return p.x >= el.x && p.x <= el.x + el.width && p.y >= el.y && p.y <= el.y + el.height;
-        }
+        if (el.type === 'shape' || el.type === 'text') return p.x >= el.x && p.x <= el.x + el.width && p.y >= el.y && p.y <= el.y + el.height;
         return false;
     }
 
     finalizeSelection() {
-        const box = this.interaction.selectionBox;
-        if (!box) return;
+        const box = this.interaction.selectionBox; if (!box) return;
         const x1 = Math.min(box.startX, box.currentX), y1 = Math.min(box.startY, box.currentY);
         const x2 = Math.max(box.startX, box.currentX), y2 = Math.max(box.startY, box.currentY);
         this.interaction.selectedElements = this.elements.filter(el => {
             if (el.type === 'line') return el.p1.x >= x1 && el.p1.x <= x2 && el.p1.y >= y1 && el.p1.y <= y2;
             if (el.type === 'pen') return el.points.some(p => p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2);
-            if (el.type === 'shape') return el.x >= x1 && el.x + el.width <= x2 && el.y >= y1 && el.y + el.height <= y2;
+            if (el.type === 'shape' || el.type === 'text') return el.x >= x1 && el.x + el.width <= x2 && el.y >= y1 && el.y + el.height <= y2;
             return false;
         });
     }
@@ -385,52 +259,36 @@ class FluxWhiteboard {
     getDistPointToSegment(p, v, w) {
         const l2 = Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);
         if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
-        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-        t = Math.max(0, Math.min(1, t));
+        let t = Math.max(0, Math.min(1, ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2));
         return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
     }
 
     handleTouchStart(e) {
         if (e.touches.length === 2) {
-            e.preventDefault();
-            this.interaction.isPanning = true;
-            this.interaction.initialTouchDistance = this.getTouchDistance(e.touches);
-            this.interaction.initialTouchCenter = this.getTouchCenter(e.touches);
-        } else if (e.touches.length === 1) {
-            const t = e.touches[0];
-            this.handleMouseDown({ clientX: t.clientX, clientY: t.clientY, button: 0, shiftKey: false });
-        }
+            e.preventDefault(); this.interaction.isPanning = true;
+            this.interaction.initialTouchDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            this.interaction.initialTouchCenter = { x: (e.touches[0].pageX + e.touches[1].pageX)/2, y: (e.touches[0].pageY + e.touches[1].pageY)/2 };
+        } else if (e.touches.length === 1) this.handleMouseDown({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY, button: 0 });
     }
 
     handleTouchMove(e) {
         if (e.touches.length === 2 && this.interaction.isPanning) {
             e.preventDefault();
-            const currentDist = this.getTouchDistance(e.touches);
-            const currentCenter = this.getTouchCenter(e.touches);
-            this.applyZoom(currentDist / this.interaction.initialTouchDistance, currentCenter.x, currentCenter.y);
-            this.view.offsetX += currentCenter.x - this.interaction.initialTouchCenter.x;
-            this.view.offsetY += currentCenter.y - this.interaction.initialTouchCenter.y;
-            this.interaction.initialTouchDistance = currentDist; this.interaction.initialTouchCenter = currentCenter;
-            this.render();
-        } else if (e.touches.length === 1) {
-            const t = e.touches[0];
-            this.handleMouseMove({ clientX: t.clientX, clientY: t.clientY });
-        }
+            const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
+            const center = { x: (e.touches[0].pageX + e.touches[1].pageX)/2, y: (e.touches[0].pageY + e.touches[1].pageY)/2 };
+            this.applyZoom(dist / this.interaction.initialTouchDistance, center.x, center.y);
+            this.view.offsetX += center.x - this.interaction.initialTouchCenter.x; this.view.offsetY += center.y - this.interaction.initialTouchCenter.y;
+            this.interaction.initialTouchDistance = dist; this.interaction.initialTouchCenter = center; this.render();
+        } else if (e.touches.length === 1) this.handleMouseMove({ clientX: e.touches[0].clientX, clientY: e.touches[0].clientY });
     }
 
     handleTouchEnd() { this.handleMouseUp(); }
-    getTouchDistance(t) { return Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY); }
-    getTouchCenter(t) { return { x: (t[0].pageX + t[1].pageX)/2, y: (t[0].pageY + t[1].pageY)/2 }; }
 
-    resize() {
-        const dpr = window.devicePixelRatio || 1;
-        this.canvas.width = window.innerWidth * dpr; this.canvas.height = window.innerHeight * dpr;
-        this.ctx.scale(dpr, dpr); this.render();
-    }
+    resize() { this.canvas.width = window.innerWidth * devicePixelRatio; this.canvas.height = window.innerHeight * devicePixelRatio; this.ctx.scale(devicePixelRatio, devicePixelRatio); this.render(); }
 
     render() {
-        const color = getComputedStyle(document.body).getPropertyValue('--bg-color').trim();
-        this.ctx.fillStyle = color; this.ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        this.ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-color').trim();
+        this.ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
         if (this.config.gridEnabled) this.drawInfiniteGrid();
         this.drawElements(); this.drawSelectionMarquee();
     }
@@ -438,12 +296,10 @@ class FluxWhiteboard {
     drawInfiniteGrid() {
         this.ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--grid-dot-color').trim();
         const gap = this.config.dotGap * this.view.scale; if (gap < 8) return;
-        const startX = (this.view.offsetX % gap) - gap; const startY = (this.view.offsetY % gap) - gap;
+        const sX = (this.view.offsetX % gap) - gap, sY = (this.view.offsetY % gap) - gap;
         this.ctx.beginPath();
-        for (let x = startX; x < window.innerWidth + gap; x += gap) {
-            for (let y = startY; y < window.innerHeight + gap; y += gap) {
-                this.ctx.moveTo(x, y); this.ctx.arc(x, y, this.config.dotRadius * Math.sqrt(this.view.scale), 0, Math.PI * 2);
-            }
+        for (let x = sX; x < window.innerWidth + gap; x += gap) for (let y = sY; y < window.innerHeight + gap; y += gap) {
+            this.ctx.moveTo(x, y); this.ctx.arc(x, y, this.config.dotRadius * Math.sqrt(this.view.scale), 0, Math.PI * 2);
         }
         this.ctx.fill();
     }
@@ -451,105 +307,138 @@ class FluxWhiteboard {
     drawElements() {
         this.elements.forEach(el => {
             this.ctx.save();
-            if (el.dashStyle === 'dashed') this.ctx.setLineDash([15 * this.view.scale, 10 * this.view.scale]);
-            else if (el.dashStyle === 'dotted') this.ctx.setLineDash([2 * this.view.scale, 8 * this.view.scale]);
-            else this.ctx.setLineDash([]);
-
+            const isSelected = this.interaction.selectedElements.includes(el);
             this.ctx.strokeStyle = el.color;
             this.ctx.lineWidth = (el.strokeWidth || el.width || 3) * this.view.scale;
             this.ctx.lineCap = 'round'; this.ctx.lineJoin = 'round';
 
-            if (el.type === 'line') {
-                const sP1 = this.worldToScreen(el.p1.x, el.p1.y), sP2 = this.worldToScreen(el.p2.x, el.p2.y);
-                const angle = Math.atan2(sP2.y - sP1.y, sP2.x - sP1.x);
-                const headlen = (el.width * 4 + 6) * this.view.scale;
-                let startX = sP1.x, startY = sP1.y, endX = sP2.x, endY = sP2.y;
-                if (el.arrowStart) { startX += headlen * 0.8 * Math.cos(angle); startY += headlen * 0.8 * Math.sin(angle); }
-                if (el.arrowEnd) { endX -= headlen * 0.8 * Math.cos(angle); endY -= headlen * 0.8 * Math.sin(angle); }
-                this.ctx.beginPath(); this.ctx.moveTo(startX, startY); this.ctx.lineTo(endX, endY); this.ctx.stroke();
-                if (el.arrowStart) this.drawArrowhead(el.p2, el.p1, el.color, el.width);
-                if (el.arrowEnd) this.drawArrowhead(el.p1, el.p2, el.color, el.width);
-                if (this.interaction.selectedElements.includes(el)) { this.drawHandle(sP1.x, sP1.y, el.color); this.drawHandle(sP2.x, sP2.y, el.color); }
-            } else if (el.type === 'pen') {
-                if (el.points.length < 2) { this.ctx.restore(); return; }
-                this.ctx.beginPath(); const start = this.worldToScreen(el.points[0].x, el.points[0].y); this.ctx.moveTo(start.x, start.y);
-                for (let i = 1; i < el.points.length; i++) { const p = this.worldToScreen(el.points[i].x, el.points[i].y); this.ctx.lineTo(p.x, p.y); }
-                this.ctx.stroke();
-                if (this.interaction.selectedElements.includes(el)) { this.ctx.globalAlpha = 0.3; this.ctx.lineWidth += 10 * this.view.scale; this.ctx.stroke(); }
+            if (el.type === 'line' || el.type === 'pen') {
+                if (el.dashStyle === 'dashed') this.ctx.setLineDash([15 * this.view.scale, 10 * this.view.scale]);
+                else if (el.dashStyle === 'dotted') this.ctx.setLineDash([2 * this.view.scale, 8 * this.view.scale]);
+                if (el.type === 'line') {
+                    const sP1 = this.worldToScreen(el.p1.x, el.p1.y), sP2 = this.worldToScreen(el.p2.x, el.p2.y);
+                    const ang = Math.atan2(sP2.y-sP1.y, sP2.x-sP1.x), hL = (el.width*4+6)*this.view.scale;
+                    let x1 = sP1.x, y1 = sP1.y, x2 = sP2.x, y2 = sP2.y;
+                    if (el.arrowStart) { x1 += hL*0.8*Math.cos(ang); y1 += hL*0.8*Math.sin(ang); }
+                    if (el.arrowEnd) { x2 -= hL*0.8*Math.cos(ang); y2 -= hL*0.8*Math.sin(ang); }
+                    this.ctx.beginPath(); this.ctx.moveTo(x1, y1); this.ctx.lineTo(x2, y2); this.ctx.stroke();
+                    if (el.arrowStart) this.drawArrowhead(el.p2, el.p1, el.color, el.width);
+                    if (el.arrowEnd) this.drawArrowhead(el.p1, el.p2, el.color, el.width);
+                    if (isSelected) { this.drawHandle(sP1.x, sP1.y, el.color); this.drawHandle(sP2.x, sP2.y, el.color); }
+                } else {
+                    this.ctx.beginPath(); const st = this.worldToScreen(el.points[0].x, el.points[0].y); this.ctx.moveTo(st.x, st.y);
+                    el.points.forEach(p => { const sp = this.worldToScreen(p.x, p.y); this.ctx.lineTo(sp.x, sp.y); }); this.ctx.stroke();
+                    if (isSelected) { this.ctx.globalAlpha = 0.3; this.ctx.lineWidth += 10 * this.view.scale; this.ctx.stroke(); }
+                }
             } else if (el.type === 'shape') {
-                const sPos = this.worldToScreen(el.x, el.y);
-                const sW = el.width * this.view.scale, sH = el.height * this.view.scale;
-                this.ctx.beginPath();
-                this.drawShapePath(el.shapeType, sPos.x, sPos.y, sW, sH);
-                
-                // Draw Fill only if not transparent
-                if (el.fillColor !== 'transparent') {
-                    this.ctx.fillStyle = el.fillColor;
-                    this.ctx.fill();
-                }
-                
-                // Draw Stroke only if not transparent
-                if (el.color !== 'transparent') {
-                    this.ctx.stroke();
-                }
-
-                if (this.interaction.selectedElements.includes(el)) {
-                    this.getElementHandles(el).forEach(h => { const sh = this.worldToScreen(h.x, h.y); this.drawHandle(sh.x, sh.y, el.color !== 'transparent' ? el.color : '#888'); });
-                }
+                const sP = this.worldToScreen(el.x, el.y), sW = el.width * this.view.scale, sH = el.height * this.view.scale;
+                this.ctx.beginPath(); this.drawShapePath(el.shapeType, sP.x, sP.y, sW, sH);
+                if (el.fillColor !== 'transparent') { this.ctx.fillStyle = el.fillColor; this.ctx.fill(); }
+                if (el.color !== 'transparent') this.ctx.stroke();
+                if (isSelected) this.getElementHandles(el).forEach(h => { const sh = this.worldToScreen(h.x, h.y); this.drawHandle(sh.x, sh.y, el.color !== 'transparent' ? el.color : '#888'); });
+            } else if (el.type === 'text') {
+                this.drawTextElement(el, isSelected);
             }
             this.ctx.restore();
         });
     }
 
-    drawShapePath(type, x, y, w, h) {
-        switch(type) {
-            case 'rect': this.ctx.rect(x, y, w, h); break;
-            case 'circle': this.ctx.ellipse(x + w/2, y + h/2, w/2, h/2, 0, 0, Math.PI * 2); break;
-            case 'triangle': this.ctx.moveTo(x + w/2, y); this.ctx.lineTo(x + w, y + h); this.ctx.lineTo(x, y + h); this.ctx.closePath(); break;
-            case 'diamond': this.ctx.moveTo(x + w/2, y); this.ctx.lineTo(x + w, y + h/2); this.ctx.lineTo(x + w/2, y + h); this.ctx.lineTo(x, y + h/2); this.ctx.closePath(); break;
-            case 'hexagon':
-                const hx = w * 0.25;
-                this.ctx.moveTo(x + hx, y); this.ctx.lineTo(x + w - hx, y); this.ctx.lineTo(x + w, y + h/2);
-                this.ctx.lineTo(x + w - hx, y + h); this.ctx.lineTo(x + hx, y + h); this.ctx.lineTo(x, y + h/2); this.ctx.closePath();
-                break;
-            case 'star':
-                const cx = x + w/2, cy = y + h/2, spikes = 5, outerR = w/2, innerR = w/4;
-                let rot = Math.PI / 2 * 3, step = Math.PI / spikes;
-                this.ctx.moveTo(cx, cy - outerR);
-                for (let i = 0; i < spikes; i++) {
-                    this.ctx.lineTo(cx + Math.cos(rot) * outerR, cy + Math.sin(rot) * outerR); rot += step;
-                    this.ctx.lineTo(cx + Math.cos(rot) * innerR, cy + Math.sin(rot) * innerR); rot += step;
-                }
-                this.ctx.closePath();
-                break;
+    /**
+     * @method drawTextElement
+     * @description Specialized renderer for text blocks with wrap and overflow logic.
+     */
+    drawTextElement(el, isSelected) {
+        const sPos = this.worldToScreen(el.x, el.y);
+        const sW = el.width * this.view.scale;
+        const sH = el.height * this.view.scale;
+        const scaledFontSize = el.fontSize * this.view.scale;
+
+        this.ctx.font = `${scaledFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
+        this.ctx.fillStyle = el.color;
+        this.ctx.textBaseline = 'top';
+
+        const lines = this.wrapText(el.content, el.width);
+        const lineHeight = scaledFontSize * 1.2;
+        const totalTextHeight = lines.length * lineHeight;
+
+        // Overflow Check
+        el.hasOverflow = totalTextHeight > sH;
+
+        // Draw selection/overflow border
+        if (isSelected || el.hasOverflow) {
+            this.ctx.lineWidth = 1;
+            this.ctx.strokeStyle = el.hasOverflow ? '#ff4757' : getComputedStyle(document.body).getPropertyValue('--accent-color');
+            this.ctx.setLineDash([5, 5]);
+            this.ctx.strokeRect(sPos.x, sPos.y, sW, sH);
+            this.ctx.setLineDash([]);
+        }
+
+        // Draw Text (Clipped to block)
+        this.ctx.save();
+        this.ctx.beginPath();
+        this.ctx.rect(sPos.x, sPos.y, sW, sH);
+        this.ctx.clip();
+        
+        lines.forEach((line, i) => {
+            this.ctx.fillText(line, sPos.x, sPos.y + i * lineHeight);
+        });
+        this.ctx.restore();
+
+        // Draw handles if selected
+        if (isSelected) {
+            this.getElementHandles(el).forEach(h => {
+                const sh = this.worldToScreen(h.x, h.y);
+                this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color'));
+            });
         }
     }
 
-    drawArrowhead(from, to, color, width) {
-        const headlen = (width * 4 + 6) * this.view.scale;
-        const angle = Math.atan2(to.y - from.y, to.x - from.x);
-        const screenTo = this.worldToScreen(to.x, to.y);
-        this.ctx.beginPath(); this.ctx.moveTo(screenTo.x, screenTo.y);
-        this.ctx.lineTo(screenTo.x - headlen * Math.cos(angle - Math.PI / 6), screenTo.y - headlen * Math.sin(angle - Math.PI / 6));
-        this.ctx.lineTo(screenTo.x - headlen * Math.cos(angle + Math.PI / 6), screenTo.y - headlen * Math.sin(angle + Math.PI / 6));
-        this.ctx.closePath(); this.ctx.fillStyle = color; this.ctx.fill();
+    wrapText(text, maxWidth) {
+        const words = text.split(' ');
+        let lines = [];
+        let currentLine = words[0];
+
+        for (let i = 1; i < words.length; i++) {
+            const word = words[i];
+            const width = this.ctx.measureText(currentLine + " " + word).width / this.view.scale;
+            if (width < maxWidth) {
+                currentLine += " " + word;
+            } else {
+                lines.push(currentLine);
+                currentLine = word;
+            }
+        }
+        lines.push(currentLine);
+        return lines;
+    }
+
+    drawShapePath(t, x, y, w, h) {
+        switch(t) {
+            case 'rect': this.ctx.rect(x,y,w,h); break;
+            case 'circle': this.ctx.ellipse(x+w/2, y+h/2, w/2, h/2, 0, 0, Math.PI*2); break;
+            case 'triangle': this.ctx.moveTo(x+w/2,y); this.ctx.lineTo(x+w,y+h); this.ctx.lineTo(x,y+h); this.ctx.closePath(); break;
+            case 'diamond': this.ctx.moveTo(x+w/2,y); this.ctx.lineTo(x+w,y+h/2); this.ctx.lineTo(x+w/2,y+h); this.ctx.lineTo(x,y+h/2); this.ctx.closePath(); break;
+            case 'hexagon': const hx=w*0.25; this.ctx.moveTo(x+hx,y); this.ctx.lineTo(x+w-hx,y); this.ctx.lineTo(x+w,y+h/2); this.ctx.lineTo(x+w-hx,y+h); this.ctx.lineTo(x+hx,y+h); this.ctx.lineTo(x,y+h/2); this.ctx.closePath(); break;
+            case 'star': const cx=x+w/2,cy=y+h/2,sp=5,oR=w/2,iR=w/4; let rot=Math.PI/2*3,st=Math.PI/sp; this.ctx.moveTo(cx,cy-oR); for(let i=0;i<sp;i++){ this.ctx.lineTo(cx+Math.cos(rot)*oR,cy+Math.sin(rot)*oR); rot+=st; this.ctx.lineTo(cx+Math.cos(rot)*iR,cy+Math.sin(rot)*iR); rot+=st; } this.ctx.closePath(); break;
+        }
+    }
+
+    drawArrowhead(f, t, c, w) {
+        const hL=(w*4+6)*this.view.scale, a=Math.atan2(t.y-f.y,t.x-f.x), sT=this.worldToScreen(t.x,t.y);
+        this.ctx.beginPath(); this.ctx.moveTo(sT.x, sT.y);
+        this.ctx.lineTo(sT.x-hL*Math.cos(a-Math.PI/6), sT.y-hL*Math.sin(a-Math.PI/6));
+        this.ctx.lineTo(sT.x-hL*Math.cos(a+Math.PI/6), sT.y-hL*Math.sin(a+Math.PI/6));
+        this.ctx.closePath(); this.ctx.fillStyle=c; this.ctx.fill();
     }
 
     drawSelectionMarquee() {
         if (!this.interaction.isSelecting || !this.interaction.selectionBox) return;
-        const box = this.interaction.selectionBox;
-        const p1 = this.worldToScreen(box.startX, box.startY), p2 = this.worldToScreen(box.currentX, box.currentY);
-        this.ctx.save(); this.ctx.setLineDash([5, 5]); this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color').trim();
-        this.ctx.lineWidth = 1; this.ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
-        this.ctx.globalAlpha = 0.1; this.ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent-color').trim();
-        this.ctx.fillRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y); this.ctx.restore();
+        const b = this.interaction.selectionBox; const p1=this.worldToScreen(b.startX,b.startY),p2=this.worldToScreen(b.currentX,b.currentY);
+        this.ctx.save(); this.ctx.setLineDash([5,5]); this.ctx.strokeStyle=getComputedStyle(document.body).getPropertyValue('--accent-color');
+        this.ctx.lineWidth=1; this.ctx.strokeRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y);
+        this.ctx.globalAlpha=0.1; this.ctx.fillStyle=this.ctx.strokeStyle; this.ctx.fillRect(p1.x,p1.y,p2.x-p1.x,p2.y-p1.y); this.ctx.restore();
     }
 
-    drawHandle(x, y, color) {
-        this.ctx.beginPath(); this.ctx.arc(x, y, this.config.handleRadius, 0, Math.PI * 2);
-        this.ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--surface-color').trim();
-        this.ctx.fill(); this.ctx.strokeStyle = color; this.ctx.lineWidth = 2; this.ctx.stroke();
-    }
-
+    drawHandle(x,y,c) { this.ctx.beginPath(); this.ctx.arc(x,y,this.config.handleRadius,0,Math.PI*2); this.ctx.fillStyle=getComputedStyle(document.body).getPropertyValue('--surface-color'); this.ctx.fill(); this.ctx.strokeStyle=c; this.ctx.lineWidth=2; this.ctx.stroke(); }
     setGridEnabled(on) { this.config.gridEnabled = on; this.render(); }
 }

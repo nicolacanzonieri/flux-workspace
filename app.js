@@ -46,289 +46,162 @@ class FluxApp {
             btnStrokeMinus: document.getElementById('btn-stroke-minus'),
             btnStrokePlus: document.getElementById('btn-stroke-plus'),
 
+            // Text Editing Controls
+            groupTextActions: document.getElementById('group-text-actions'),
+            dividerTextActions: document.getElementById('divider-text-actions'),
+            btnEditText: document.getElementById('btn-edit-text'),
+            btnTextSizeUp: document.getElementById('btn-text-size-up'),
+            btnTextSizeDown: document.getElementById('btn-text-size-down'),
+
             styleBtns: document.querySelectorAll('[data-style]'),
             arrowBtns: document.querySelectorAll('[data-arrow]'),
             btnDuplicate: document.getElementById('btn-duplicate'),
             btnDelete: document.getElementById('btn-delete')
         };
         
-        this.state = {
-            isReady: false,
-            boardActive: false,
-            activeTool: 'select',
-            pickingMode: 'stroke'
-        };
-
+        this.state = { isReady: false, boardActive: false, activeTool: 'select', pickingMode: 'stroke' };
         this.whiteboard = null;
         this.init();
     }
 
     async init() {
         console.log("Flux: Initializing Workspace...");
-        if(typeof FluxWhiteboard !== 'undefined') {
-            this.whiteboard = new FluxWhiteboard('flux-canvas');
-        }
-        this.loadSettings();
-        this.revealApplication();
-        this.bindEvents();
+        if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
+        this.loadSettings(); this.revealApplication(); this.bindEvents();
     }
 
     async revealApplication() {
-        this.dom.app.classList.remove('hidden');
-        this.dom.app.classList.add('visible');
-        await new Promise(r => setTimeout(r, 500));
-        this.dom.mainTitle.classList.add('fade-in');
-        await new Promise(r => setTimeout(r, 800));
-        this.dom.splash.classList.add('fade-out');
-        await new Promise(r => setTimeout(r, 600));
-        this.dom.mainTitle.classList.remove('initial-center');
-        await new Promise(r => setTimeout(r, 400));
-        this.dom.menuContent.classList.remove('invisible');
-        this.dom.menuContent.classList.add('fade-in');
-        this.state.isReady = true;
+        this.dom.app.classList.remove('hidden'); this.dom.app.classList.add('visible');
+        await new Promise(r => setTimeout(r, 500)); this.dom.mainTitle.classList.add('fade-in');
+        await new Promise(r => setTimeout(r, 800)); this.dom.splash.classList.add('fade-out');
+        await new Promise(r => setTimeout(r, 600)); this.dom.mainTitle.classList.remove('initial-center');
+        await new Promise(r => setTimeout(r, 400)); this.dom.menuContent.classList.remove('invisible');
+        this.dom.menuContent.classList.add('fade-in'); this.state.isReady = true;
     }
 
     loadSettings() {
-        const savedTheme = localStorage.getItem('flux-theme');
-        if (savedTheme === 'light') {
-            document.body.classList.add('light-mode');
-            this.dom.themeToggle.checked = true;
-        }
-        const savedGrid = localStorage.getItem('flux-grid');
-        if (savedGrid === 'false') {
-            this.dom.gridToggle.checked = false;
-            if(this.whiteboard) this.whiteboard.setGridEnabled(false);
-        }
+        const t = localStorage.getItem('flux-theme'); if(t==='light'){ document.body.classList.add('light-mode'); this.dom.themeToggle.checked=true; }
+        const g = localStorage.getItem('flux-grid'); if(g==='false'){ this.dom.gridToggle.checked=false; if(this.whiteboard) this.whiteboard.setGridEnabled(false); }
     }
 
     bindEvents() {
         this.dom.btnNew.addEventListener('click', () => this.startNewBoard());
         this.dom.btnHome.addEventListener('click', () => this.returnToHome());
 
-        this.dom.toolBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const tool = btn.getAttribute('data-tool');
-                if (tool === 'line') this.createLineAction();
-                else if (tool === 'shape') this.dom.shapesModal.classList.remove('hidden');
-                else this.selectTool(tool);
-            });
-        });
+        this.dom.toolBtns.forEach(btn => btn.addEventListener('click', () => {
+            const t = btn.getAttribute('data-tool');
+            if(t === 'line') this.createLineAction();
+            else if(t === 'shape') this.dom.shapesModal.classList.remove('hidden');
+            else if(t === 'text') this.createTextAction();
+            else this.selectTool(t);
+        }));
 
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
-        this.dom.btnCloseSettings.addEventListener('click', () => this.dom.settingsModal.classList.add('hidden'));
-        
-        this.dom.btnColorPicker.addEventListener('click', () => {
-            this.state.pickingMode = 'stroke';
-            document.getElementById('color-modal-title').textContent = 'Stroke Color';
-            this.dom.colorModal.classList.remove('hidden');
-        });
-        
-        this.dom.btnFillPicker.addEventListener('click', () => {
-            this.state.pickingMode = 'fill';
-            document.getElementById('color-modal-title').textContent = 'Fill Color';
-            this.dom.colorModal.classList.remove('hidden');
-        });
-        
-        this.dom.btnCloseColor.addEventListener('click', () => this.dom.colorModal.classList.add('hidden'));
+        this.dom.btnColorPicker.addEventListener('click', () => { this.state.pickingMode = 'stroke'; document.getElementById('color-modal-title').textContent = 'Color'; this.dom.colorModal.classList.remove('hidden'); });
+        this.dom.btnFillPicker.addEventListener('click', () => { this.state.pickingMode = 'fill'; document.getElementById('color-modal-title').textContent = 'Fill Color'; this.dom.colorModal.classList.remove('hidden'); });
         this.dom.btnStrokePicker.addEventListener('click', () => this.dom.strokeModal.classList.remove('hidden'));
-        this.dom.btnCloseStroke.addEventListener('click', () => this.dom.strokeModal.classList.add('hidden'));
-        this.dom.btnCloseShapes.addEventListener('click', () => this.dom.shapesModal.classList.add('hidden'));
+        [this.dom.btnCloseSettings, this.dom.btnCloseColor, this.dom.btnCloseStroke, this.dom.btnCloseShapes].forEach(b => b.addEventListener('click', () => b.closest('.modal-overlay').classList.add('hidden')));
+        [this.dom.settingsModal, this.dom.colorModal, this.dom.strokeModal, this.dom.shapesModal].forEach(m => m.addEventListener('click', e => { if(e.target === m) m.classList.add('hidden'); }));
 
-        [this.dom.settingsModal, this.dom.colorModal, this.dom.strokeModal, this.dom.shapesModal].forEach(modal => {
-            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
+        this.dom.themeToggle.addEventListener('change', e => {
+            const isL = e.target.checked; document.body.classList.toggle('light-mode', isL);
+            localStorage.setItem('flux-theme', isL ? 'light' : 'dark'); if(this.whiteboard) this.whiteboard.updateThemeColors(isL);
         });
 
-        this.dom.themeToggle.addEventListener('change', (e) => {
-            const isLight = e.target.checked;
-            document.body.classList.toggle('light-mode', isLight);
-            localStorage.setItem('flux-theme', isLight ? 'light' : 'dark');
-            if(this.whiteboard) this.whiteboard.updateThemeColors(isLight);
-        });
-
-        this.dom.gridToggle.addEventListener('change', (e) => {
-            const isEnabled = e.target.checked;
-            localStorage.setItem('flux-grid', isEnabled);
-            if(this.whiteboard) this.whiteboard.setGridEnabled(isEnabled);
-        });
-
+        this.dom.gridToggle.addEventListener('change', e => { localStorage.setItem('flux-grid', e.target.checked); if(this.whiteboard) this.whiteboard.setGridEnabled(e.target.checked); });
         this.dom.btnHardReset.addEventListener('click', () => this.hardResetApp());
 
-        this.dom.colorDots.forEach(dot => {
-            dot.addEventListener('click', () => {
-                const color = dot.getAttribute('data-color');
-                const isStroke = this.state.pickingMode === 'stroke';
-                
-                this.updateSelectedProperty(el => {
-                    if (isStroke) {
-                        if (color === 'auto') {
-                            const isLight = document.body.classList.contains('light-mode');
-                            el.color = isLight ? '#1a1a1d' : '#ffffff'; el.isAutoColor = true;
-                        } else { el.color = color; el.isAutoColor = false; }
-                    } else {
-                        if (color === 'auto') {
-                            const isLight = document.body.classList.contains('light-mode');
-                            el.fillColor = isLight ? '#1a1a1d' : '#ffffff'; el.isAutoFill = true;
-                        } else { el.fillColor = color; el.isAutoFill = false; }
-                    }
-                });
-                this.dom.colorModal.classList.add('hidden');
-                this.updateEditBar();
-            });
-        });
-
-        const handleWidthChange = (val) => {
-            const num = Math.min(Math.max(parseInt(val) || 1, 1), 50);
+        this.dom.colorDots.forEach(dot => dot.addEventListener('click', () => {
+            const color = dot.getAttribute('data-color');
             this.updateSelectedProperty(el => {
-                if (el.type === 'shape') el.strokeWidth = num;
-                else el.width = num;
+                if(this.state.pickingMode === 'stroke') {
+                    if(color === 'auto') { el.color = document.body.classList.contains('light-mode') ? '#1a1a1d' : '#ffffff'; el.isAutoColor = true; }
+                    else { el.color = color; el.isAutoColor = false; }
+                } else {
+                    if(color === 'auto') { el.fillColor = document.body.classList.contains('light-mode') ? '#1a1a1d' : '#ffffff'; el.isAutoFill = true; }
+                    else { el.fillColor = color; el.isAutoFill = false; }
+                }
             });
-            this.syncStrokeUI(num);
-        };
+            this.dom.colorModal.classList.add('hidden'); this.updateEditBar();
+        }));
 
-        this.dom.strokeSlider.addEventListener('input', (e) => handleWidthChange(e.target.value));
-        this.dom.strokeNumber.addEventListener('change', (e) => handleWidthChange(e.target.value));
-        this.dom.btnStrokeMinus.addEventListener('click', () => handleWidthChange(parseInt(this.dom.strokeNumber.value) - 1));
-        this.dom.btnStrokePlus.addEventListener('click', () => handleWidthChange(parseInt(this.dom.strokeNumber.value) + 1));
+        const handleWidth = v => { const n = Math.min(Math.max(parseInt(v)||1, 1), 50); this.updateSelectedProperty(el => { if(el.type==='shape') el.strokeWidth=n; else el.width=n; }); this.syncStrokeUI(n); };
+        this.dom.strokeSlider.addEventListener('input', e => handleWidth(e.target.value));
+        this.dom.strokeNumber.addEventListener('change', e => handleWidth(e.target.value));
+        this.dom.btnStrokeMinus.addEventListener('click', () => handleWidth(parseInt(this.dom.strokeNumber.value)-1));
+        this.dom.btnStrokePlus.addEventListener('click', () => handleWidth(parseInt(this.dom.strokeNumber.value)+1));
 
-        this.dom.shapeOptBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const type = btn.getAttribute('data-shape');
-                const isLight = document.body.classList.contains('light-mode');
-                this.whiteboard.addShape(type, isLight ? '#1a1a1d' : '#ffffff');
-                this.dom.shapesModal.classList.add('hidden');
-                this.selectTool('select');
-            });
+        this.dom.shapeOptBtns.forEach(btn => btn.addEventListener('click', () => {
+            const type = btn.getAttribute('data-shape');
+            this.whiteboard.addShape(type, document.body.classList.contains('light-mode') ? '#1a1a1d' : '#ffffff');
+            this.dom.shapesModal.classList.add('hidden'); this.selectTool('select');
+        }));
+
+        // Text Size Events
+        this.dom.btnTextSizeUp.addEventListener('click', () => this.updateSelectedProperty(el => el.fontSize += 2));
+        this.dom.btnTextSizeDown.addEventListener('click', () => this.updateSelectedProperty(el => el.fontSize = Math.max(8, el.fontSize - 2)));
+        this.dom.btnEditText.addEventListener('click', () => {
+            // Placeholder for future markdown editor logic
+            console.log("Flux: Opening Markdown Editor Placeholder...");
         });
 
-        this.dom.styleBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const style = btn.getAttribute('data-style');
-                this.updateSelectedProperty(el => el.dashStyle = style);
-                this.dom.styleBtns.forEach(b => b.classList.toggle('active', b === btn));
-            });
-        });
+        this.dom.styleBtns.forEach(btn => btn.addEventListener('click', () => {
+            const s = btn.getAttribute('data-style'); this.updateSelectedProperty(el => el.dashStyle = s);
+            this.dom.styleBtns.forEach(b => b.classList.toggle('active', b === btn));
+        }));
 
-        this.dom.arrowBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                const type = btn.getAttribute('data-arrow');
-                this.updateSelectedProperty(el => {
-                    if (type === 'start') el.arrowStart = !el.arrowStart;
-                    if (type === 'end') el.arrowEnd = !el.arrowEnd;
-                });
-                btn.classList.toggle('active');
-            });
-        });
+        this.dom.arrowBtns.forEach(btn => btn.addEventListener('click', () => {
+            const t = btn.getAttribute('data-arrow'); this.updateSelectedProperty(el => { if(t==='start') el.arrowStart=!el.arrowStart; if(t==='end') el.arrowEnd=!el.arrowEnd; }); btn.classList.toggle('active');
+        }));
 
         this.dom.btnDuplicate.addEventListener('click', () => this.whiteboard.duplicateSelected());
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
 
-    syncStrokeUI(val) {
-        this.dom.btnStrokePicker.textContent = `${val}px`;
-        this.dom.strokeSlider.value = val;
-        this.dom.strokeNumber.value = val;
-    }
-
-    syncPickerButtonAppearance(btn, color, isAuto) {
-        if (isAuto) { btn.className = 'color-dot auto'; btn.style.background = ''; }
-        else if (color === 'transparent') { btn.className = 'color-dot transparent'; btn.style.background = ''; }
-        else { btn.className = 'color-dot'; btn.style.background = color; }
-    }
-
-    updateSelectedProperty(callback) {
-        if (!this.whiteboard) return;
-        this.whiteboard.interaction.selectedElements.forEach(callback);
-        this.whiteboard.render();
-    }
+    syncStrokeUI(v) { this.dom.btnStrokePicker.textContent = `${v}px`; this.dom.strokeSlider.value = v; this.dom.strokeNumber.value = v; }
+    syncPickerButtonAppearance(btn, c, isA) { if(isA){ btn.className='color-dot auto'; btn.style.background=''; } else if(c==='transparent'){ btn.className='color-dot transparent'; btn.style.background=''; } else { btn.className='color-dot'; btn.style.background=c; } }
+    updateSelectedProperty(cb) { if(this.whiteboard) { this.whiteboard.interaction.selectedElements.forEach(cb); this.whiteboard.render(); this.updateEditBar(); } }
 
     updateEditBar() {
-        if (!this.whiteboard) return;
-        const selected = this.whiteboard.interaction.selectedElements;
-        if (selected.length > 0) {
+        if(!this.whiteboard) return;
+        const sel = this.whiteboard.interaction.selectedElements;
+        if(sel.length > 0) {
             this.dom.editBar.classList.remove('hidden');
-            if (selected.length === 1) {
-                const el = selected[0];
-                this.syncStrokeUI(el.strokeWidth || el.width || 3);
-                this.dom.styleBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-style') === el.dashStyle));
+            if(sel.length === 1) {
+                const el = sel[0];
+                const isL = el.type === 'line', isS = el.type === 'shape', isT = el.type === 'text';
                 
-                const isLine = el.type === 'line';
-                const isShape = el.type === 'shape';
-
-                this.dom.arrowBtns.forEach(b => {
-                    b.style.display = isLine ? 'flex' : 'none';
-                    const type = b.getAttribute('data-arrow');
-                    b.classList.toggle('active', isLine && ((type === 'start' && el.arrowStart) || (type === 'end' && el.arrowEnd)));
-                });
-                const arrowDivider = this.dom.arrowBtns[0].parentElement.previousElementSibling;
-                if(arrowDivider) arrowDivider.style.display = isLine ? 'block' : 'none';
+                // Toggle sections visibility
+                this.dom.dividerTextActions.style.display = isT ? 'block' : 'none';
+                this.dom.groupTextActions.style.display = isT ? 'flex' : 'none';
                 
-                // Show Empty Option in Color Modal ONLY for Shapes
-                this.dom.colorOptEmpty.style.display = isShape ? 'flex' : 'none';
+                document.getElementById('divider-stroke').style.display = isT ? 'none' : 'block';
+                document.getElementById('group-stroke').style.display = isT ? 'none' : 'flex';
+                document.getElementById('divider-style').style.display = isT ? 'none' : 'block';
+                document.getElementById('group-style').style.display = isT ? 'none' : 'flex';
+                document.getElementById('divider-arrows').style.display = isL ? 'block' : 'none';
+                document.getElementById('group-arrows').style.display = isL ? 'flex' : 'none';
 
-                this.dom.btnFillPicker.style.display = isShape ? 'flex' : 'none';
-                if (isShape) {
-                    this.syncPickerButtonAppearance(this.dom.btnFillPicker, el.fillColor, el.isAutoFill);
-                }
+                this.dom.btnFillPicker.style.display = isS ? 'flex' : 'none';
+                this.dom.colorOptEmpty.style.display = isS ? 'flex' : 'none';
 
+                if(!isT) this.syncStrokeUI(el.strokeWidth || el.width || 3);
+                if(isS) this.syncPickerButtonAppearance(this.dom.btnFillPicker, el.fillColor, el.isAutoFill);
                 this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
-            } else {
-                this.dom.arrowBtns.forEach(b => b.style.display = 'none');
             }
-        } else {
-            this.dom.editBar.classList.add('hidden');
-            this.dom.colorModal.classList.add('hidden');
-            this.dom.strokeModal.classList.add('hidden');
-            this.dom.shapesModal.classList.add('hidden');
-        }
+        } else this.dom.editBar.classList.add('hidden');
     }
 
-    createLineAction() {
-        if (!this.whiteboard) return;
-        const isLightMode = document.body.classList.contains('light-mode');
-        const lineColor = isLightMode ? '#1a1a1d' : '#ffffff';
-        this.whiteboard.addLine(lineColor);
-        this.selectTool('select');
+    createLineAction() { if(this.whiteboard){ const isL = document.body.classList.contains('light-mode'); this.whiteboard.addLine(isL ? '#1a1a1d' : '#ffffff'); this.selectTool('select'); } }
+    createTextAction() { if(this.whiteboard){ const isL = document.body.classList.contains('light-mode'); this.whiteboard.addText(isL ? '#1a1a1d' : '#ffffff'); this.selectTool('select'); } }
+
+    selectTool(t) {
+        this.state.activeTool = t; this.dom.toolBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tool') === t));
+        if(this.whiteboard){ this.whiteboard.render(); if(t !== 'select'){ this.dom.editBar.classList.add('hidden'); this.whiteboard.interaction.selectedElements = []; } }
     }
 
-    selectTool(toolId) {
-        this.state.activeTool = toolId;
-        this.dom.toolBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tool') === toolId));
-        if (this.whiteboard) {
-            this.whiteboard.render();
-            if (toolId !== 'select') { this.dom.editBar.classList.add('hidden'); this.whiteboard.interaction.selectedElements = []; }
-        }
-    }
-
-    startNewBoard() {
-        if(this.whiteboard) this.whiteboard.clearBoard();
-        this.dom.menu.classList.add('hidden');
-        this.dom.canvas.classList.remove('hidden');
-        this.dom.toolbar.classList.remove('hidden');
-        this.state.boardActive = true;
-        this.dom.btnHome.classList.remove('hidden');
-        if(this.whiteboard) this.whiteboard.resize();
-    }
-
-    returnToHome() {
-        this.dom.canvas.classList.add('hidden'); this.dom.toolbar.classList.add('hidden'); this.dom.editBar.classList.add('hidden');
-        this.state.boardActive = false; this.dom.btnHome.classList.add('hidden'); this.dom.menu.classList.remove('hidden');
-    }
-
-    async hardResetApp() {
-        const confirmed = confirm("This action will clear all local settings and force a fresh download of Flux Workspace. Proceed?");
-        if(!confirmed) return;
-        try {
-            if (window.navigator.serviceWorker) {
-                const regs = await navigator.serviceWorker.getRegistrations();
-                for (let r of regs) await r.unregister();
-            }
-            if (window.caches) {
-                const names = await caches.keys();
-                for (let n of names) await caches.delete(n);
-            }
-            localStorage.clear(); sessionStorage.clear(); window.location.reload(true);
-        } catch (e) { console.error("Flux Reset Failed:", e); window.location.reload(); }
-    }
+    startNewBoard() { if(this.whiteboard) this.whiteboard.clearBoard(); this.dom.menu.classList.add('hidden'); this.dom.canvas.classList.remove('hidden'); this.dom.toolbar.classList.remove('hidden'); this.state.boardActive = true; this.dom.btnHome.classList.remove('hidden'); if(this.whiteboard) this.whiteboard.resize(); }
+    returnToHome() { this.dom.canvas.classList.add('hidden'); this.dom.toolbar.classList.add('hidden'); this.dom.editBar.classList.add('hidden'); this.state.boardActive = false; this.dom.btnHome.classList.add('hidden'); this.dom.menu.classList.remove('hidden'); }
+    async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of ns) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
 }
-
-document.addEventListener('DOMContentLoaded', () => { window.flux = new FluxApp(); });
+document.addEventListener('DOMContentLoaded', () => window.flux = new FluxApp());
