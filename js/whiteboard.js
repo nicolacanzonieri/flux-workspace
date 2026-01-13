@@ -20,8 +20,8 @@ class FluxWhiteboard {
             maxScale: 10,
             zoomSensitivity: 0.005,
             handleRadius: 10,
-            handleHitThreshold: 35, // Increased for mobile precision
-            hitThreshold: 25        // Body selection sensitivity
+            handleHitThreshold: 35,
+            hitThreshold: 25 // Default minimum hitbox for touch/click
         };
 
         /** @type {Object} Virtual camera state */
@@ -54,48 +54,29 @@ class FluxWhiteboard {
         this.init();
     }
 
-    /**
-     * @method init
-     * @description Sets up window listeners and input handlers.
-     */
     init() {
         window.addEventListener('resize', () => this.resize());
-
-        // Standard Mouse/Trackpad inputs
         this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         window.addEventListener('mouseup', () => this.handleMouseUp());
         this.canvas.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
-
-        // Mobile Multi-touch inputs
         this.canvas.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
         this.canvas.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
         this.canvas.addEventListener('touchend', () => this.handleTouchEnd());
-
         this.resize();
     }
 
-    /**
-     * @method clearBoard
-     * @description Completely wipes elements and resets the camera view to the center.
-     */
     clearBoard() {
         this.elements = [];
         this.interaction.selectedElements = [];
         this.interaction.selectionBox = null;
         this.interaction.isSelecting = false;
-        
         this.view.offsetX = window.innerWidth / 2;
         this.view.offsetY = window.innerHeight / 2;
         this.view.scale = 1;
-        
         this.render();
     }
 
-    /**
-     * @method screenToWorld
-     * @description Converts screen pixel coordinates to world space coordinates.
-     */
     screenToWorld(x, y) {
         return {
             x: (x - this.view.offsetX) / this.view.scale,
@@ -103,10 +84,6 @@ class FluxWhiteboard {
         };
     }
 
-    /**
-     * @method worldToScreen
-     * @description Converts world space coordinates to screen pixel coordinates.
-     */
     worldToScreen(x, y) {
         return {
             x: x * this.view.scale + this.view.offsetX,
@@ -114,10 +91,6 @@ class FluxWhiteboard {
         };
     }
 
-    /**
-     * @method addLine
-     * @description Spawns a new line element in the center of the current view.
-     */
     addLine(color) {
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
         const newLine = {
@@ -127,17 +100,41 @@ class FluxWhiteboard {
             p2: { x: center.x + 50, y: center.y },
             color: color,
             isAutoColor: true,
-            width: 3
+            width: 3,
+            dashStyle: 'solid',
+            arrowStart: false,
+            arrowEnd: false
         };
         this.elements.push(newLine);
         this.interaction.selectedElements = [newLine]; 
         this.render();
+        if(window.flux) window.flux.updateEditBar();
     }
 
-    /**
-     * @method updateThemeColors
-     * @description Updates all elements flagged with isAutoColor based on new theme.
-     */
+    duplicateSelected() {
+        const newSelected = [];
+        this.interaction.selectedElements.forEach(el => {
+            const clone = JSON.parse(JSON.stringify(el));
+            clone.id = Date.now() + Math.random();
+            const offset = 20 / this.view.scale;
+            if (clone.type === 'line') {
+                clone.p1.x += offset; clone.p1.y += offset;
+                clone.p2.x += offset; clone.p2.y += offset;
+            }
+            this.elements.push(clone);
+            newSelected.push(clone);
+        });
+        this.interaction.selectedElements = newSelected;
+        this.render();
+    }
+
+    deleteSelected() {
+        this.elements = this.elements.filter(el => !this.interaction.selectedElements.includes(el));
+        this.interaction.selectedElements = [];
+        this.render();
+        if(window.flux) window.flux.updateEditBar();
+    }
+
     updateThemeColors(isLightMode) {
         const newColor = isLightMode ? '#1a1a1d' : '#ffffff';
         this.elements.forEach(el => {
@@ -146,10 +143,6 @@ class FluxWhiteboard {
         this.render();
     }
 
-    /**
-     * @method handleWheel
-     * @description Processes scrolling for either panning or zooming.
-     */
     handleWheel(e) {
         e.preventDefault();
         if (e.ctrlKey) {
@@ -162,17 +155,11 @@ class FluxWhiteboard {
         this.render();
     }
 
-    /**
-     * @method applyZoom
-     * @description Scales the view relative to a specific coordinate point.
-     */
     applyZoom(factor, x, y) {
         const newScale = Math.min(Math.max(this.view.scale * factor, this.config.minScale), this.config.maxScale);
         if (newScale === this.view.scale) return;
-
         const mouseWorld = this.screenToWorld(x, y);
         this.view.scale = newScale;
-
         this.view.offsetX = x - mouseWorld.x * this.view.scale;
         this.view.offsetY = y - mouseWorld.y * this.view.scale;
     }
@@ -182,38 +169,42 @@ class FluxWhiteboard {
         const tool = window.flux.state.activeTool;
         let hitFound = false;
 
-        // 1. PRIORITY: Handle interaction (Strict check on selected elements)
         for (const el of this.interaction.selectedElements) {
             if (el.type === 'line') {
                 const d1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
                 const d2 = Math.hypot(mouse.x - el.p2.x, mouse.y - el.p2.y) * this.view.scale;
-
                 if (d1 < this.config.handleHitThreshold) {
                     this.interaction.isDraggingHandle = true;
                     this.interaction.draggedElement = el;
                     this.interaction.draggedHandle = 'p1';
-                    return; // Stop here, we are dragging a handle
+                    return;
                 } else if (d2 < this.config.handleHitThreshold) {
                     this.interaction.isDraggingHandle = true;
                     this.interaction.draggedElement = el;
                     this.interaction.draggedHandle = 'p2';
-                    return; // Stop here
+                    return;
                 }
             }
         }
 
-        // 2. Element selection/dragging (Avoid triggering if too close to handles)
         if (tool === 'select') {
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (el.type === 'line') {
                     const dist = this.getDistPointToSegment(mouse, el.p1, el.p2) * this.view.scale;
-                    
-                    // Extra safety: Check if we are at least somewhat far from the handles of this line
                     const distToP1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
                     const distToP2 = Math.hypot(mouse.x - el.p2.x, mouse.y - el.p2.y) * this.view.scale;
+                    
+                    /**
+                     * DYNAMIC HITBOX UPDATE
+                     * Calculated during mouse down to reflect real-time width property changes.
+                     * We use a base buffer of 15px + half line width to ensure clicks hit 
+                     * the visible area perfectly even if extremely thick.
+                     */
+                    const thicknessThreshold = (el.width * this.view.scale) / 2 + 15;
+                    const effectiveHitThreshold = Math.max(this.config.hitThreshold, thicknessThreshold);
 
-                    if (dist < this.config.hitThreshold && distToP1 > this.config.handleHitThreshold && distToP2 > this.config.handleHitThreshold) {
+                    if (dist < effectiveHitThreshold && distToP1 > this.config.handleHitThreshold && distToP2 > this.config.handleHitThreshold) {
                         if (!this.interaction.selectedElements.includes(el)) {
                             this.interaction.selectedElements = [el];
                         }
@@ -224,19 +215,13 @@ class FluxWhiteboard {
                     }
                 }
             }
-
-            // 3. Marquee selection
             if (!hitFound) {
                 this.interaction.selectedElements = [];
                 this.interaction.isSelecting = true;
-                this.interaction.selectionBox = { 
-                    startX: mouse.x, startY: mouse.y, 
-                    currentX: mouse.x, currentY: mouse.y 
-                };
+                this.interaction.selectionBox = { startX: mouse.x, startY: mouse.y, currentX: mouse.x, currentY: mouse.y };
             }
         }
 
-        // 4. Panning
         if (e.shiftKey || e.button === 1 || tool === 'pan') {
             this.interaction.isPanning = true;
             this.interaction.lastMouseX = e.clientX;
@@ -245,20 +230,17 @@ class FluxWhiteboard {
         }
 
         this.render();
+        if(window.flux) window.flux.updateEditBar();
     }
 
     handleMouseMove(e) {
         const mouse = this.screenToWorld(e.clientX, e.clientY);
-
         if (this.interaction.isDraggingHandle) {
             const el = this.interaction.draggedElement;
             const handle = this.interaction.draggedHandle;
-            el[handle].x = mouse.x;
-            el[handle].y = mouse.y;
-            this.render();
-            return;
+            el[handle].x = mouse.x; el[handle].y = mouse.y;
+            this.render(); return;
         }
-
         if (this.interaction.isDraggingElements) {
             const dx = mouse.x - this.interaction.dragLastWorldPos.x;
             const dy = mouse.y - this.interaction.dragLastWorldPos.y;
@@ -269,32 +251,24 @@ class FluxWhiteboard {
                 }
             });
             this.interaction.dragLastWorldPos = mouse;
-            this.render();
-            return;
+            this.render(); return;
         }
-
         if (this.interaction.isSelecting) {
             this.interaction.selectionBox.currentX = mouse.x;
             this.interaction.selectionBox.currentY = mouse.y;
-            this.render();
-            return;
+            this.render(); return;
         }
-
         if (this.interaction.isPanning) {
             const dx = e.clientX - this.interaction.lastMouseX;
             const dy = e.clientY - this.interaction.lastMouseY;
-            this.view.offsetX += dx;
-            this.view.offsetY += dy;
-            this.interaction.lastMouseX = e.clientX;
-            this.interaction.lastMouseY = e.clientY;
+            this.view.offsetX += dx; this.view.offsetY += dy;
+            this.interaction.lastMouseX = e.clientX; this.interaction.lastMouseY = e.clientY;
             this.render();
         }
     }
 
     handleMouseUp() {
-        if (this.interaction.isSelecting) {
-            this.finalizeSelection();
-        }
+        if (this.interaction.isSelecting) this.finalizeSelection();
         this.interaction.isSelecting = false;
         this.interaction.selectionBox = null;
         this.interaction.isPanning = false;
@@ -304,6 +278,7 @@ class FluxWhiteboard {
         this.interaction.draggedHandle = null;
         this.canvas.classList.remove('panning');
         this.render();
+        if(window.flux) window.flux.updateEditBar();
     }
 
     finalizeSelection() {
@@ -375,7 +350,6 @@ class FluxWhiteboard {
         const color = getComputedStyle(document.body).getPropertyValue('--bg-color').trim();
         this.ctx.fillStyle = color;
         this.ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-
         if (this.config.gridEnabled) this.drawInfiniteGrid();
         this.drawElements();
         this.drawSelectionMarquee();
@@ -402,20 +376,45 @@ class FluxWhiteboard {
             if (el.type === 'line') {
                 const p1 = this.worldToScreen(el.p1.x, el.p1.y);
                 const p2 = this.worldToScreen(el.p2.x, el.p2.y);
+                
+                this.ctx.save();
                 this.ctx.beginPath();
                 this.ctx.moveTo(p1.x, p1.y);
                 this.ctx.lineTo(p2.x, p2.y);
+                
+                if (el.dashStyle === 'dashed') this.ctx.setLineDash([15 * this.view.scale, 10 * this.view.scale]);
+                else if (el.dashStyle === 'dotted') this.ctx.setLineDash([2 * this.view.scale, 8 * this.view.scale]);
+                else this.ctx.setLineDash([]);
+
                 this.ctx.strokeStyle = el.color;
                 this.ctx.lineWidth = el.width * this.view.scale;
                 this.ctx.lineCap = 'round';
                 this.ctx.stroke();
+                
+                if (el.arrowStart) this.drawArrowhead(el.p2, el.p1, el.color, el.width);
+                if (el.arrowEnd) this.drawArrowhead(el.p1, el.p2, el.color, el.width);
 
                 if (this.interaction.selectedElements.includes(el)) {
                     this.drawHandle(p1.x, p1.y, el.color);
                     this.drawHandle(p2.x, p2.y, el.color);
                 }
+                this.ctx.restore();
             }
         });
+    }
+
+    drawArrowhead(from, to, color, width) {
+        const headlen = 10 * this.view.scale + width * this.view.scale;
+        const angle = Math.atan2(to.y - from.y, to.x - from.x);
+        const screenTo = this.worldToScreen(to.x, to.y);
+
+        this.ctx.beginPath();
+        this.ctx.moveTo(screenTo.x, screenTo.y);
+        this.ctx.lineTo(screenTo.x - headlen * Math.cos(angle - Math.PI / 6), screenTo.y - headlen * Math.sin(angle - Math.PI / 6));
+        this.ctx.lineTo(screenTo.x - headlen * Math.cos(angle + Math.PI / 6), screenTo.y - headlen * Math.sin(angle + Math.PI / 6));
+        this.ctx.closePath();
+        this.ctx.fillStyle = color;
+        this.ctx.fill();
     }
 
     drawSelectionMarquee() {

@@ -12,6 +12,7 @@ class FluxApp {
             menuContent: document.getElementById('menu-content'),
             canvas: document.getElementById('flux-canvas'),
             toolbar: document.getElementById('toolbar'),
+            editBar: document.getElementById('edit-bar'),
             
             btnNew: document.getElementById('btn-new-board'),
             btnOpen: document.getElementById('btn-open-file'),
@@ -19,12 +20,19 @@ class FluxApp {
             btnHome: document.getElementById('btn-home'),
             btnCloseSettings: document.getElementById('btn-close-settings'),
             btnHardReset: document.getElementById('btn-hard-reset'),
-            toolBtns: document.querySelectorAll('.tool-btn'),
+            toolBtns: document.querySelectorAll('.bottom-toolbar .tool-btn'),
             
             settingsModal: document.getElementById('settings-modal'),
             themeToggle: document.getElementById('theme-toggle'),
             gridToggle: document.getElementById('grid-toggle'),
-            fileInput: document.getElementById('file-input')
+            fileInput: document.getElementById('file-input'),
+
+            colorDots: document.querySelectorAll('.color-dot'),
+            strokeInput: document.getElementById('input-stroke-width'),
+            styleBtns: document.querySelectorAll('[data-style]'),
+            arrowBtns: document.querySelectorAll('[data-arrow]'),
+            btnDuplicate: document.getElementById('btn-duplicate'),
+            btnDelete: document.getElementById('btn-delete')
         };
         
         this.state = {
@@ -82,11 +90,8 @@ class FluxApp {
         this.dom.toolBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 const tool = btn.getAttribute('data-tool');
-                if (tool === 'line') {
-                    this.createLineAction();
-                } else {
-                    this.selectTool(tool);
-                }
+                if (tool === 'line') this.createLineAction();
+                else this.selectTool(tool);
             });
         });
 
@@ -100,9 +105,7 @@ class FluxApp {
             const isLight = e.target.checked;
             document.body.classList.toggle('light-mode', isLight);
             localStorage.setItem('flux-theme', isLight ? 'light' : 'dark');
-            if(this.whiteboard) {
-                this.whiteboard.updateThemeColors(isLight);
-            }
+            if(this.whiteboard) this.whiteboard.updateThemeColors(isLight);
         });
 
         this.dom.gridToggle.addEventListener('change', (e) => {
@@ -112,6 +115,80 @@ class FluxApp {
         });
 
         this.dom.btnHardReset.addEventListener('click', () => this.hardResetApp());
+
+        this.dom.colorDots.forEach(dot => {
+            dot.addEventListener('click', () => {
+                const color = dot.getAttribute('data-color');
+                this.updateSelectedProperty(el => {
+                    if (color === 'auto') {
+                        const isLight = document.body.classList.contains('light-mode');
+                        el.color = isLight ? '#1a1a1d' : '#ffffff';
+                        el.isAutoColor = true;
+                    } else {
+                        el.color = color;
+                        el.isAutoColor = false;
+                    }
+                });
+                this.dom.colorDots.forEach(d => d.classList.toggle('active', d === dot));
+            });
+        });
+
+        // UPDATE WIDTH IN REAL-TIME DURING SLIDER DRAG
+        this.dom.strokeInput.addEventListener('input', (e) => {
+            this.updateSelectedProperty(el => el.width = parseInt(e.target.value));
+        });
+
+        this.dom.styleBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const style = btn.getAttribute('data-style');
+                this.updateSelectedProperty(el => el.dashStyle = style);
+                this.dom.styleBtns.forEach(b => b.classList.toggle('active', b === btn));
+            });
+        });
+
+        this.dom.arrowBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-arrow');
+                this.updateSelectedProperty(el => {
+                    if (type === 'start') el.arrowStart = !el.arrowStart;
+                    if (type === 'end') el.arrowEnd = !el.arrowEnd;
+                });
+                btn.classList.toggle('active');
+            });
+        });
+
+        this.dom.btnDuplicate.addEventListener('click', () => this.whiteboard.duplicateSelected());
+        this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
+    }
+
+    updateSelectedProperty(callback) {
+        if (!this.whiteboard) return;
+        this.whiteboard.interaction.selectedElements.forEach(callback);
+        this.whiteboard.render();
+    }
+
+    updateEditBar() {
+        if (!this.whiteboard) return;
+        const selected = this.whiteboard.interaction.selectedElements;
+        if (selected.length > 0) {
+            this.dom.editBar.classList.remove('hidden');
+            if (selected.length === 1) {
+                const el = selected[0];
+                this.dom.strokeInput.value = el.width;
+                this.dom.styleBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-style') === el.dashStyle));
+                this.dom.arrowBtns.forEach(b => {
+                    const type = b.getAttribute('data-arrow');
+                    b.classList.toggle('active', (type === 'start' && el.arrowStart) || (type === 'end' && el.arrowEnd));
+                });
+                this.dom.colorDots.forEach(d => {
+                    const c = d.getAttribute('data-color');
+                    if (el.isAutoColor) d.classList.toggle('active', c === 'auto');
+                    else d.classList.toggle('active', c === el.color);
+                });
+            }
+        } else {
+            this.dom.editBar.classList.add('hidden');
+        }
     }
 
     createLineAction() {
@@ -131,9 +208,7 @@ class FluxApp {
     }
 
     startNewBoard() {
-        if(this.whiteboard) {
-            this.whiteboard.clearBoard();
-        }
+        if(this.whiteboard) this.whiteboard.clearBoard();
         this.dom.menu.classList.add('hidden');
         this.dom.canvas.classList.remove('hidden');
         this.dom.toolbar.classList.remove('hidden');
@@ -145,6 +220,7 @@ class FluxApp {
     returnToHome() {
         this.dom.canvas.classList.add('hidden');
         this.dom.toolbar.classList.add('hidden');
+        this.dom.editBar.classList.add('hidden');
         this.state.boardActive = false;
         this.dom.btnHome.classList.add('hidden');
         this.dom.menu.classList.remove('hidden');
