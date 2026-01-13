@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flux-core-v1';
+const CACHE_NAME = 'flux-core-v2';
 const ASSETS = [
     './', 
     './index.html', 
@@ -9,7 +9,6 @@ const ASSETS = [
     './js/whiteboard.js',
     './js/pdf-viewer.js'
 ];
-
 // Installazione: Cache degli asset statici fondamentali
 self.addEventListener('install', evt => {
     evt.waitUntil(
@@ -21,7 +20,6 @@ self.addEventListener('install', evt => {
     );
     self.skipWaiting();
 });
-
 // Attivazione: Pulizia vecchie cache
 self.addEventListener('activate', evt => {
     evt.waitUntil(
@@ -34,10 +32,8 @@ self.addEventListener('activate', evt => {
     );
     self.clients.claim();
 });
-
-// Fetch: Strategia Stale-While-Revalidate (veloce, ma aggiorna in background)
+// Fetch: Strategia Stale-While-Revalidate
 self.addEventListener('fetch', evt => {
-    // Ignora richieste non GET
     if (evt.request.method !== 'GET') return;
 
     evt.respondWith(
@@ -45,13 +41,11 @@ self.addEventListener('fetch', evt => {
             const fetchPromise = fetch(evt.request).then(networkResponse => {
                 caches.open(CACHE_NAME).then(cache => {
                     cache.put(evt.request, networkResponse.clone());
-                });
+                 });
                 return networkResponse;
             });
-            // Restituisce la cache se c'è, altrimenti aspetta la rete
             return cachedResponse || fetchPromise;
         }).catch(() => {
-            // Fallback offline per la navigazione
             if (evt.request.mode === 'navigate') {
                 return caches.match('./offline.html');
             }
