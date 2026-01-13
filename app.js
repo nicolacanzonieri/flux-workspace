@@ -127,14 +127,13 @@ class FluxApp {
         this.dom.toolBtns.forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-tool') === toolId);
         });
-        
-        // Clear selection marquee if tool changes mid-way
-        if (this.whiteboard) {
-            this.whiteboard.render();
-        }
+        if (this.whiteboard) this.whiteboard.render();
     }
 
     startNewBoard() {
+        if(this.whiteboard) {
+            this.whiteboard.clearBoard();
+        }
         this.dom.menu.classList.add('hidden');
         this.dom.canvas.classList.remove('hidden');
         this.dom.toolbar.classList.remove('hidden');

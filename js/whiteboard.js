@@ -19,8 +19,8 @@ class FluxWhiteboard {
             minScale: 0.1,
             maxScale: 10,
             zoomSensitivity: 0.005,
-            handleRadius: 10, // Slightly larger for mobile
-            hitThreshold: 25  // Increased for easier selection on mobile
+            handleRadius: 10,
+            hitThreshold: 25 
         };
 
         /** @type {Object} Virtual camera state */
@@ -34,13 +34,15 @@ class FluxWhiteboard {
         this.interaction = {
             isPanning: false,
             isDraggingHandle: false,
-            isSelecting: false, // For marquee selection
-            selectionBox: null, // { startX, startY, endX, endY } in world space
-            selectedElements: [], // Array of selected objects
+            isDraggingElements: false, // New: dragging objects
+            isSelecting: false,
+            selectionBox: null,
+            selectedElements: [],
             draggedElement: null,
             draggedHandle: null,
             lastMouseX: 0,
             lastMouseY: 0,
+            dragLastWorldPos: { x: 0, y: 0 }, // For delta calculation
             initialTouchDistance: 0,
             initialTouchCenter: { x: 0, y: 0 }
         };
@@ -70,6 +72,21 @@ class FluxWhiteboard {
         this.canvas.addEventListener('touchend', () => this.handleTouchEnd());
 
         this.resize();
+    }
+
+    /**
+     * @method clearBoard
+     * @description Completely wipes elements and resets the camera view.
+     */
+    clearBoard() {
+        this.elements = [];
+        this.interaction.selectedElements = [];
+        this.interaction.selectionBox = null;
+        this.interaction.isSelecting = false;
+        this.view.offsetX = window.innerWidth / 2;
+        this.view.offsetY = window.innerHeight / 2;
+        this.view.scale = 1;
+        this.render();
     }
 
     /**
@@ -162,7 +179,7 @@ class FluxWhiteboard {
         const tool = window.flux.state.activeTool;
         let hitFound = false;
 
-        // 1. Check for handle interaction (on currently selected elements)
+        // 1. Check for handle interaction (prioritize current selection)
         for (const el of this.interaction.selectedElements) {
             if (el.type === 'line') {
                 const d1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
@@ -182,14 +199,19 @@ class FluxWhiteboard {
             }
         }
 
-        // 2. Check for single element selection
+        // 2. Check for element selection/dragging
         if (tool === 'select') {
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (el.type === 'line') {
                     const dist = this.getDistPointToSegment(mouse, el.p1, el.p2) * this.view.scale;
                     if (dist < this.config.hitThreshold) {
-                        this.interaction.selectedElements = [el];
+                        // If element isn't already in selection, make it the only selection
+                        if (!this.interaction.selectedElements.includes(el)) {
+                            this.interaction.selectedElements = [el];
+                        }
+                        this.interaction.isDraggingElements = true;
+                        this.interaction.dragLastWorldPos = mouse;
                         hitFound = true;
                         break;
                     }
@@ -230,6 +252,22 @@ class FluxWhiteboard {
             return;
         }
 
+        if (this.interaction.isDraggingElements) {
+            const dx = mouse.x - this.interaction.dragLastWorldPos.x;
+            const dy = mouse.y - this.interaction.dragLastWorldPos.y;
+            
+            this.interaction.selectedElements.forEach(el => {
+                if (el.type === 'line') {
+                    el.p1.x += dx; el.p1.y += dy;
+                    el.p2.x += dx; el.p2.y += dy;
+                }
+            });
+            
+            this.interaction.dragLastWorldPos = mouse;
+            this.render();
+            return;
+        }
+
         if (this.interaction.isSelecting) {
             this.interaction.selectionBox.currentX = mouse.x;
             this.interaction.selectionBox.currentY = mouse.y;
@@ -257,6 +295,7 @@ class FluxWhiteboard {
         this.interaction.selectionBox = null;
         this.interaction.isPanning = false;
         this.interaction.isDraggingHandle = false;
+        this.interaction.isDraggingElements = false;
         this.interaction.draggedElement = null;
         this.interaction.draggedHandle = null;
         this.canvas.classList.remove('panning');
@@ -278,7 +317,6 @@ class FluxWhiteboard {
 
         this.interaction.selectedElements = this.elements.filter(el => {
             if (el.type === 'line') {
-                // Line is selected if both points are inside the box
                 return (el.p1.x >= x1 && el.p1.x <= x2 && el.p1.y >= y1 && el.p1.y <= y2) ||
                        (el.p2.x >= x1 && el.p2.x <= x2 && el.p2.y >= y1 && el.p2.y <= y2);
             }
@@ -301,7 +339,6 @@ class FluxWhiteboard {
             this.interaction.initialTouchDistance = this.getTouchDistance(e.touches);
             this.interaction.initialTouchCenter = this.getTouchCenter(e.touches);
         } else if (e.touches.length === 1) {
-            // Emulate MouseDown for touch
             const t = e.touches[0];
             this.handleMouseDown({ clientX: t.clientX, clientY: t.clientY, button: 0 });
         }
@@ -383,10 +420,6 @@ class FluxWhiteboard {
         });
     }
 
-    /**
-     * @method drawSelectionMarquee
-     * @description Renders the selection rectangle while dragging.
-     */
     drawSelectionMarquee() {
         if (!this.interaction.isSelecting || !this.interaction.selectionBox) return;
         
