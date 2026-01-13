@@ -100,8 +100,6 @@ class FluxApp {
             const isLight = e.target.checked;
             document.body.classList.toggle('light-mode', isLight);
             localStorage.setItem('flux-theme', isLight ? 'light' : 'dark');
-            
-            // SYNC ELEMENT COLORS WITH NEW THEME
             if(this.whiteboard) {
                 this.whiteboard.updateThemeColors(isLight);
             }
@@ -116,16 +114,10 @@ class FluxApp {
         this.dom.btnHardReset.addEventListener('click', () => this.hardResetApp());
     }
 
-    /**
-     * @method createLineAction
-     * @description Logic triggered when the Line tool button is clicked.
-     */
     createLineAction() {
         if (!this.whiteboard) return;
-        
         const isLightMode = document.body.classList.contains('light-mode');
         const lineColor = isLightMode ? '#1a1a1d' : '#ffffff';
-        
         this.whiteboard.addLine(lineColor);
         this.selectTool('select');
     }
@@ -135,6 +127,11 @@ class FluxApp {
         this.dom.toolBtns.forEach(btn => {
             btn.classList.toggle('active', btn.getAttribute('data-tool') === toolId);
         });
+        
+        // Clear selection marquee if tool changes mid-way
+        if (this.whiteboard) {
+            this.whiteboard.render();
+        }
     }
 
     startNewBoard() {
@@ -157,7 +154,6 @@ class FluxApp {
     async hardResetApp() {
         const confirmed = confirm("This action will clear all local settings and force a fresh download of Flux Workspace. Proceed?");
         if(!confirmed) return;
-
         try {
             if (window.navigator.serviceWorker) {
                 const regs = await navigator.serviceWorker.getRegistrations();

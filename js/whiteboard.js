@@ -19,8 +19,8 @@ class FluxWhiteboard {
             minScale: 0.1,
             maxScale: 10,
             zoomSensitivity: 0.005,
-            handleRadius: 8,
-            hitThreshold: 10 // Pixels for line selection sensitivity
+            handleRadius: 10, // Slightly larger for mobile
+            hitThreshold: 25  // Increased for easier selection on mobile
         };
 
         /** @type {Object} Virtual camera state */
@@ -34,9 +34,11 @@ class FluxWhiteboard {
         this.interaction = {
             isPanning: false,
             isDraggingHandle: false,
-            selectedElement: null,
+            isSelecting: false, // For marquee selection
+            selectionBox: null, // { startX, startY, endX, endY } in world space
+            selectedElements: [], // Array of selected objects
             draggedElement: null,
-            draggedHandle: null, // 'p1' o 'p2'
+            draggedHandle: null,
             lastMouseX: 0,
             lastMouseY: 0,
             initialTouchDistance: 0,
@@ -95,7 +97,6 @@ class FluxWhiteboard {
     /**
      * @method addLine
      * @description Spawns a new line element in the center of the current view.
-     * @param {string} color - Current theme color.
      */
     addLine(color) {
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
@@ -105,18 +106,17 @@ class FluxWhiteboard {
             p1: { x: center.x - 50, y: center.y },
             p2: { x: center.x + 50, y: center.y },
             color: color,
-            isAutoColor: true, // Flag for theme-sync
+            isAutoColor: true,
             width: 3
         };
         this.elements.push(newLine);
-        this.interaction.selectedElement = newLine; // Select automatically
+        this.interaction.selectedElements = [newLine]; 
         this.render();
     }
 
     /**
      * @method updateThemeColors
      * @description Updates all elements flagged with isAutoColor based on new theme.
-     * @param {boolean} isLightMode - New theme state.
      */
     updateThemeColors(isLightMode) {
         const newColor = isLightMode ? '#1a1a1d' : '#ffffff';
@@ -128,7 +128,7 @@ class FluxWhiteboard {
 
     /**
      * @method handleWheel
-     * @description Processes scrolling for either panning or zooming (if Ctrl is held).
+     * @description Processes scrolling for either panning or zooming.
      */
     handleWheel(e) {
         e.preventDefault();
@@ -159,47 +159,56 @@ class FluxWhiteboard {
 
     handleMouseDown(e) {
         const mouse = this.screenToWorld(e.clientX, e.clientY);
+        const tool = window.flux.state.activeTool;
         let hitFound = false;
 
-        // 1. Check for handle interaction (prioritize currently selected element)
-        if (this.interaction.selectedElement && this.interaction.selectedElement.type === 'line') {
-            const el = this.interaction.selectedElement;
-            const d1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
-            const d2 = Math.hypot(mouse.x - el.p2.x, mouse.y - el.p2.y) * this.view.scale;
-
-            if (d1 < this.config.handleRadius * 1.5) {
-                this.interaction.isDraggingHandle = true;
-                this.interaction.draggedElement = el;
-                this.interaction.draggedHandle = 'p1';
-                return;
-            } else if (d2 < this.config.handleRadius * 1.5) {
-                this.interaction.isDraggingHandle = true;
-                this.interaction.draggedElement = el;
-                this.interaction.draggedHandle = 'p2';
-                return;
-            }
-        }
-
-        // 2. Check for element selection (body hit detection)
-        for (let i = this.elements.length - 1; i >= 0; i--) {
-            const el = this.elements[i];
+        // 1. Check for handle interaction (on currently selected elements)
+        for (const el of this.interaction.selectedElements) {
             if (el.type === 'line') {
-                const dist = this.getDistPointToSegment(mouse, el.p1, el.p2) * this.view.scale;
-                if (dist < this.config.hitThreshold) {
-                    this.interaction.selectedElement = el;
-                    hitFound = true;
-                    break;
+                const d1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
+                const d2 = Math.hypot(mouse.x - el.p2.x, mouse.y - el.p2.y) * this.view.scale;
+
+                if (d1 < this.config.handleRadius * 1.5) {
+                    this.interaction.isDraggingHandle = true;
+                    this.interaction.draggedElement = el;
+                    this.interaction.draggedHandle = 'p1';
+                    return;
+                } else if (d2 < this.config.handleRadius * 1.5) {
+                    this.interaction.isDraggingHandle = true;
+                    this.interaction.draggedElement = el;
+                    this.interaction.draggedHandle = 'p2';
+                    return;
                 }
             }
         }
 
-        // 3. Deselect if clicked empty space
-        if (!hitFound && window.flux.state.activeTool === 'select') {
-            this.interaction.selectedElement = null;
+        // 2. Check for single element selection
+        if (tool === 'select') {
+            for (let i = this.elements.length - 1; i >= 0; i--) {
+                const el = this.elements[i];
+                if (el.type === 'line') {
+                    const dist = this.getDistPointToSegment(mouse, el.p1, el.p2) * this.view.scale;
+                    if (dist < this.config.hitThreshold) {
+                        this.interaction.selectedElements = [el];
+                        hitFound = true;
+                        break;
+                    }
+                }
+            }
+
+            // 3. If no hit, start marquee selection
+            if (!hitFound) {
+                this.interaction.selectedElements = [];
+                this.interaction.isSelecting = true;
+                this.interaction.selectionBox = { 
+                    startX: mouse.x, startY: mouse.y, 
+                    currentX: mouse.x, currentY: mouse.y 
+                };
+            }
         }
 
         // 4. Handle Panning
-        if (e.shiftKey || e.button === 1 || window.flux.state.activeTool === 'pan') {
+        if (e.shiftKey || e.button === 1 || tool === 'pan') {
             this.interaction.isPanning = true;
             this.interaction.lastMouseX = e.clientX;
             this.interaction.lastMouseY = e.clientY;
@@ -209,21 +218,10 @@ class FluxWhiteboard {
         this.render();
     }
 
-    /**
-     * @method getDistPointToSegment
-     * @description Mathematical helper for hit detection on line segments.
-     */
-    getDistPointToSegment(p, v, w) {
-        const l2 = Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);
-        if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
-        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
-        t = Math.max(0, Math.min(1, t));
-        return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
-    }
-
     handleMouseMove(e) {
+        const mouse = this.screenToWorld(e.clientX, e.clientY);
+
         if (this.interaction.isDraggingHandle) {
-            const mouse = this.screenToWorld(e.clientX, e.clientY);
             const el = this.interaction.draggedElement;
             const handle = this.interaction.draggedHandle;
             el[handle].x = mouse.x;
@@ -232,22 +230,68 @@ class FluxWhiteboard {
             return;
         }
 
-        if (!this.interaction.isPanning) return;
-        const dx = e.clientX - this.interaction.lastMouseX;
-        const dy = e.clientY - this.interaction.lastMouseY;
-        this.view.offsetX += dx;
-        this.view.offsetY += dy;
-        this.interaction.lastMouseX = e.clientX;
-        this.interaction.lastMouseY = e.clientY;
-        this.render();
+        if (this.interaction.isSelecting) {
+            this.interaction.selectionBox.currentX = mouse.x;
+            this.interaction.selectionBox.currentY = mouse.y;
+            this.render();
+            return;
+        }
+
+        if (this.interaction.isPanning) {
+            const dx = e.clientX - this.interaction.lastMouseX;
+            const dy = e.clientY - this.interaction.lastMouseY;
+            this.view.offsetX += dx;
+            this.view.offsetY += dy;
+            this.interaction.lastMouseX = e.clientX;
+            this.interaction.lastMouseY = e.clientY;
+            this.render();
+        }
     }
 
     handleMouseUp() {
+        if (this.interaction.isSelecting) {
+            this.finalizeSelection();
+        }
+        
+        this.interaction.isSelecting = false;
+        this.interaction.selectionBox = null;
         this.interaction.isPanning = false;
         this.interaction.isDraggingHandle = false;
         this.interaction.draggedElement = null;
         this.interaction.draggedHandle = null;
         this.canvas.classList.remove('panning');
+        this.render();
+    }
+
+    /**
+     * @method finalizeSelection
+     * @description Checks which elements fall into the selection box.
+     */
+    finalizeSelection() {
+        const box = this.interaction.selectionBox;
+        if (!box) return;
+
+        const x1 = Math.min(box.startX, box.currentX);
+        const y1 = Math.min(box.startY, box.currentY);
+        const x2 = Math.max(box.startX, box.currentX);
+        const y2 = Math.max(box.startY, box.currentY);
+
+        this.interaction.selectedElements = this.elements.filter(el => {
+            if (el.type === 'line') {
+                // Line is selected if both points are inside the box
+                return (el.p1.x >= x1 && el.p1.x <= x2 && el.p1.y >= y1 && el.p1.y <= y2) ||
+                       (el.p2.x >= x1 && el.p2.x <= x2 && el.p2.y >= y1 && el.p2.y <= y2);
+            }
+            return false;
+        });
+    }
+
+    getDistPointToSegment(p, v, w) {
+        const l2 = Math.pow(v.x - w.x, 2) + Math.pow(v.y - w.y, 2);
+        if (l2 === 0) return Math.hypot(p.x - v.x, p.y - v.y);
+        let t = ((p.x - v.x) * (w.x - v.x) + (p.y - v.y) * (w.y - v.y)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(p.x - (v.x + t * (w.x - v.x)), p.y - (v.y + t * (w.y - v.y)));
     }
 
     handleTouchStart(e) {
@@ -256,6 +300,10 @@ class FluxWhiteboard {
             this.interaction.isPanning = true;
             this.interaction.initialTouchDistance = this.getTouchDistance(e.touches);
             this.interaction.initialTouchCenter = this.getTouchCenter(e.touches);
+        } else if (e.touches.length === 1) {
+            // Emulate MouseDown for touch
+            const t = e.touches[0];
+            this.handleMouseDown({ clientX: t.clientX, clientY: t.clientY, button: 0 });
         }
     }
 
@@ -264,25 +312,22 @@ class FluxWhiteboard {
             e.preventDefault();
             const currentDist = this.getTouchDistance(e.touches);
             const currentCenter = this.getTouchCenter(e.touches);
-            
             this.applyZoom(currentDist / this.interaction.initialTouchDistance, currentCenter.x, currentCenter.y);
             this.view.offsetX += currentCenter.x - this.interaction.initialTouchCenter.x;
             this.view.offsetY += currentCenter.y - this.interaction.initialTouchCenter.y;
-
             this.interaction.initialTouchDistance = currentDist;
             this.interaction.initialTouchCenter = currentCenter;
             this.render();
+        } else if (e.touches.length === 1) {
+            const t = e.touches[0];
+            this.handleMouseMove({ clientX: t.clientX, clientY: t.clientY });
         }
     }
 
-    handleTouchEnd() { this.interaction.isPanning = false; }
+    handleTouchEnd() { this.handleMouseUp(); }
     getTouchDistance(t) { return Math.hypot(t[0].pageX - t[1].pageX, t[0].pageY - t[1].pageY); }
     getTouchCenter(t) { return { x: (t[0].pageX + t[1].pageX)/2, y: (t[0].pageY + t[1].pageY)/2 }; }
 
-    /**
-     * @method resize
-     * @description Synchronizes canvas size with window and DPR.
-     */
     resize() {
         const dpr = window.devicePixelRatio || 1;
         this.canvas.width = window.innerWidth * dpr;
@@ -291,32 +336,22 @@ class FluxWhiteboard {
         this.render();
     }
 
-    /**
-     * @method render
-     * @description Core draw loop. Clears frame and invokes sub-renderers.
-     */
     render() {
         const color = getComputedStyle(document.body).getPropertyValue('--bg-color').trim();
         this.ctx.fillStyle = color;
         this.ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
 
         if (this.config.gridEnabled) this.drawInfiniteGrid();
-        
         this.drawElements();
+        this.drawSelectionMarquee();
     }
 
-    /**
-     * @method drawInfiniteGrid
-     * @description Renders a modulo-based dot grid to simulate infinite space.
-     */
     drawInfiniteGrid() {
         this.ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--grid-dot-color').trim();
         const gap = this.config.dotGap * this.view.scale;
         if (gap < 8) return;
-
         const startX = (this.view.offsetX % gap) - gap;
         const startY = (this.view.offsetY % gap) - gap;
-
         this.ctx.beginPath();
         for (let x = startX; x < window.innerWidth + gap; x += gap) {
             for (let y = startY; y < window.innerHeight + gap; y += gap) {
@@ -327,17 +362,11 @@ class FluxWhiteboard {
         this.ctx.fill();
     }
 
-    /**
-     * @method drawElements
-     * @description Renders all objects in the world space.
-     */
     drawElements() {
         this.elements.forEach(el => {
             if (el.type === 'line') {
                 const p1 = this.worldToScreen(el.p1.x, el.p1.y);
                 const p2 = this.worldToScreen(el.p2.x, el.p2.y);
-
-                // Draw main line
                 this.ctx.beginPath();
                 this.ctx.moveTo(p1.x, p1.y);
                 this.ctx.lineTo(p2.x, p2.y);
@@ -346,8 +375,7 @@ class FluxWhiteboard {
                 this.ctx.lineCap = 'round';
                 this.ctx.stroke();
 
-                // Draw handles only if selected
-                if (this.interaction.selectedElement === el) {
+                if (this.interaction.selectedElements.includes(el)) {
                     this.drawHandle(p1.x, p1.y, el.color);
                     this.drawHandle(p2.x, p2.y, el.color);
                 }
@@ -356,9 +384,28 @@ class FluxWhiteboard {
     }
 
     /**
-     * @method drawHandle
-     * @description Utility to draw interactive handles for elements.
+     * @method drawSelectionMarquee
+     * @description Renders the selection rectangle while dragging.
      */
+    drawSelectionMarquee() {
+        if (!this.interaction.isSelecting || !this.interaction.selectionBox) return;
+        
+        const box = this.interaction.selectionBox;
+        const p1 = this.worldToScreen(box.startX, box.startY);
+        const p2 = this.worldToScreen(box.currentX, box.currentY);
+
+        this.ctx.save();
+        this.ctx.setLineDash([5, 5]);
+        this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color').trim();
+        this.ctx.lineWidth = 1;
+        this.ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+        
+        this.ctx.globalAlpha = 0.1;
+        this.ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent-color').trim();
+        this.ctx.fillRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
+        this.ctx.restore();
+    }
+
     drawHandle(x, y, color) {
         this.ctx.beginPath();
         this.ctx.arc(x, y, this.config.handleRadius, 0, Math.PI * 2);
