@@ -34,7 +34,7 @@ class FluxWhiteboard {
         this.interaction = {
             isPanning: false,
             isDraggingHandle: false,
-            isDraggingElements: false, // New: dragging objects
+            isDraggingElements: false,
             isSelecting: false,
             selectionBox: null,
             selectedElements: [],
@@ -42,7 +42,7 @@ class FluxWhiteboard {
             draggedHandle: null,
             lastMouseX: 0,
             lastMouseY: 0,
-            dragLastWorldPos: { x: 0, y: 0 }, // For delta calculation
+            dragLastWorldPos: { x: 0, y: 0 },
             initialTouchDistance: 0,
             initialTouchCenter: { x: 0, y: 0 }
         };
@@ -76,16 +76,19 @@ class FluxWhiteboard {
 
     /**
      * @method clearBoard
-     * @description Completely wipes elements and resets the camera view.
+     * @description Completely wipes elements and resets the camera view to the center.
      */
     clearBoard() {
         this.elements = [];
         this.interaction.selectedElements = [];
         this.interaction.selectionBox = null;
         this.interaction.isSelecting = false;
+        
+        // Ensure camera is perfectly centered in the current window
         this.view.offsetX = window.innerWidth / 2;
         this.view.offsetY = window.innerHeight / 2;
         this.view.scale = 1;
+        
         this.render();
     }
 
@@ -179,7 +182,7 @@ class FluxWhiteboard {
         const tool = window.flux.state.activeTool;
         let hitFound = false;
 
-        // 1. Check for handle interaction (prioritize current selection)
+        // 1. Check for handle interaction
         for (const el of this.interaction.selectedElements) {
             if (el.type === 'line') {
                 const d1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
@@ -206,7 +209,6 @@ class FluxWhiteboard {
                 if (el.type === 'line') {
                     const dist = this.getDistPointToSegment(mouse, el.p1, el.p2) * this.view.scale;
                     if (dist < this.config.hitThreshold) {
-                        // If element isn't already in selection, make it the only selection
                         if (!this.interaction.selectedElements.includes(el)) {
                             this.interaction.selectedElements = [el];
                         }
@@ -255,14 +257,12 @@ class FluxWhiteboard {
         if (this.interaction.isDraggingElements) {
             const dx = mouse.x - this.interaction.dragLastWorldPos.x;
             const dy = mouse.y - this.interaction.dragLastWorldPos.y;
-            
             this.interaction.selectedElements.forEach(el => {
                 if (el.type === 'line') {
                     el.p1.x += dx; el.p1.y += dy;
                     el.p2.x += dx; el.p2.y += dy;
                 }
             });
-            
             this.interaction.dragLastWorldPos = mouse;
             this.render();
             return;
@@ -290,7 +290,6 @@ class FluxWhiteboard {
         if (this.interaction.isSelecting) {
             this.finalizeSelection();
         }
-        
         this.interaction.isSelecting = false;
         this.interaction.selectionBox = null;
         this.interaction.isPanning = false;
@@ -302,19 +301,13 @@ class FluxWhiteboard {
         this.render();
     }
 
-    /**
-     * @method finalizeSelection
-     * @description Checks which elements fall into the selection box.
-     */
     finalizeSelection() {
         const box = this.interaction.selectionBox;
         if (!box) return;
-
         const x1 = Math.min(box.startX, box.currentX);
         const y1 = Math.min(box.startY, box.currentY);
         const x2 = Math.max(box.startX, box.currentX);
         const y2 = Math.max(box.startY, box.currentY);
-
         this.interaction.selectedElements = this.elements.filter(el => {
             if (el.type === 'line') {
                 return (el.p1.x >= x1 && el.p1.x <= x2 && el.p1.y >= y1 && el.p1.y <= y2) ||
@@ -422,17 +415,14 @@ class FluxWhiteboard {
 
     drawSelectionMarquee() {
         if (!this.interaction.isSelecting || !this.interaction.selectionBox) return;
-        
         const box = this.interaction.selectionBox;
         const p1 = this.worldToScreen(box.startX, box.startY);
         const p2 = this.worldToScreen(box.currentX, box.currentY);
-
         this.ctx.save();
         this.ctx.setLineDash([5, 5]);
         this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color').trim();
         this.ctx.lineWidth = 1;
         this.ctx.strokeRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
-        
         this.ctx.globalAlpha = 0.1;
         this.ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--accent-color').trim();
         this.ctx.fillRect(p1.x, p1.y, p2.x - p1.x, p2.y - p1.y);
