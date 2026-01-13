@@ -21,7 +21,7 @@ class FluxWhiteboard {
             zoomSensitivity: 0.005,
             handleRadius: 10,
             handleHitThreshold: 35,
-            hitThreshold: 25 // Default minimum hitbox for touch/click
+            hitThreshold: 25 
         };
 
         /** @type {Object} Virtual camera state */
@@ -195,12 +195,6 @@ class FluxWhiteboard {
                     const distToP1 = Math.hypot(mouse.x - el.p1.x, mouse.y - el.p1.y) * this.view.scale;
                     const distToP2 = Math.hypot(mouse.x - el.p2.x, mouse.y - el.p2.y) * this.view.scale;
                     
-                    /**
-                     * DYNAMIC HITBOX UPDATE
-                     * Calculated during mouse down to reflect real-time width property changes.
-                     * We use a base buffer of 15px + half line width to ensure clicks hit 
-                     * the visible area perfectly even if extremely thick.
-                     */
                     const thicknessThreshold = (el.width * this.view.scale) / 2 + 15;
                     const effectiveHitThreshold = Math.max(this.config.hitThreshold, thicknessThreshold);
 
@@ -261,8 +255,10 @@ class FluxWhiteboard {
         if (this.interaction.isPanning) {
             const dx = e.clientX - this.interaction.lastMouseX;
             const dy = e.clientY - this.interaction.lastMouseY;
-            this.view.offsetX += dx; this.view.offsetY += dy;
-            this.interaction.lastMouseX = e.clientX; this.interaction.lastMouseY = e.clientY;
+            this.view.offsetX += dx;
+            this.view.offsetY += dy;
+            this.interaction.lastMouseX = e.clientX;
+            this.interaction.lastMouseY = e.clientY;
             this.render();
         }
     }

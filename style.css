@@ -95,9 +95,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 
 /* === 6. TOOLBARS === */
 .bottom-toolbar {
-    position: absolute; 
-    bottom: calc(var(--safe-bottom) + 10px); /* Reduced padding to the bottom */
-    left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: calc(var(--safe-bottom) + 10px); left: 50%; transform: translateX(-50%);
     z-index: 100; max-width: 90%; background: var(--modal-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border-color); border-radius: 24px; padding: 6px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
     transition: transform 0.6s var(--ease-out), opacity 0.4s;
@@ -105,9 +103,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .bottom-toolbar.hidden { transform: translate(-50%, 100px); opacity: 0; pointer-events: none; }
 
 .edit-toolbar {
-    position: absolute; 
-    bottom: calc(var(--safe-bottom) + 100px); /* Increased space between tools and edit bar */
-    left: 50%; transform: translateX(-50%);
+    position: absolute; bottom: calc(var(--safe-bottom) + 100px); left: 50%; transform: translateX(-50%);
     z-index: 110; max-width: 95%; background: var(--modal-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border-color); border-radius: 20px; padding: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     transition: all 0.4s var(--ease-out); display: flex; align-items: center;
@@ -127,10 +123,21 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .tool-btn.action svg { width: 22px; height: 22px; }
 .danger-text { color: var(--danger-color) !important; }
 
-.color-dot { width: 24px; height: 24px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: transform 0.2s; flex-shrink: 0; }
-.color-dot:hover { transform: scale(1.2); }
-.color-dot.active { border-color: var(--accent-color); transform: scale(1.1); }
-.color-dot.auto { background: linear-gradient(45deg, #fff 50%, #000 50%); border: 1px solid var(--border-color); }
+/* Color Picker Button & Dots */
+.color-dot { 
+    width: 28px; height: 28px; border-radius: 50%; 
+    border: 1px solid var(--text-primary); /* Solido Nero/Bianco in base al tema */
+    cursor: pointer; transition: transform 0.2s, border-color 0.3s; 
+    flex-shrink: 0; position: relative; overflow: hidden;
+}
+.color-dot:hover { transform: scale(1.15); }
+.color-dot.active { border-width: 2px; border-color: var(--accent-color); transform: scale(1.1); }
+
+/* Improved Auto Icon (Perfectly circular split) */
+.color-dot.auto { 
+    background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); 
+}
+.color-dot.big { width: 44px; height: 44px; }
 
 input[type="range"] { -webkit-appearance: none; width: 80px; height: 4px; background: var(--border-color); border-radius: 2px; }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; background: var(--text-primary); border-radius: 50%; cursor: pointer; }
@@ -142,10 +149,16 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 16p
 .modal-overlay:not(.hidden) { opacity: 1; visibility: visible; }
 .modal-content { background: var(--modal-bg); width: 90%; max-width: 450px; border-radius: 28px; border: 1px solid var(--border-color); padding: 30px; box-shadow: 0 30px 60px rgba(0,0,0,0.6); transform: scale(0.9); transition: transform 0.3s var(--ease-out); display: flex; flex-direction: column; max-height: 85vh; }
 .modal-overlay:not(.hidden) .modal-content { transform: scale(1); }
+
+.small-modal { max-width: 320px; padding: 25px; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 .modal-header h2 { margin: 0; font-weight: 300; font-size: 1.8rem; }
 .close-btn { background: none; border: none; font-size: 2rem; color: var(--text-secondary); cursor: pointer; }
-.settings-scroll-area { overflow-y: auto; padding-right: 5px; }
+.modal-divider { height: 1px; background: var(--border-color); margin: 20px 0; width: 100%; }
+
+.color-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; justify-items: center; }
+.color-option-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; }
+
 .setting-section { margin-bottom: 30px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
 .setting-section.danger { border-bottom: none; }
 .setting-section h3 { font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 15px; letter-spacing: 1px; }

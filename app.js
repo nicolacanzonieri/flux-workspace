@@ -23,11 +23,14 @@ class FluxApp {
             toolBtns: document.querySelectorAll('.bottom-toolbar .tool-btn'),
             
             settingsModal: document.getElementById('settings-modal'),
+            colorModal: document.getElementById('color-modal'),
+            btnCloseColor: document.getElementById('btn-close-color'),
             themeToggle: document.getElementById('theme-toggle'),
             gridToggle: document.getElementById('grid-toggle'),
             fileInput: document.getElementById('file-input'),
 
-            colorDots: document.querySelectorAll('.color-dot'),
+            btnColorPicker: document.getElementById('btn-color-picker'),
+            colorDots: document.querySelectorAll('#color-modal .color-dot'),
             strokeInput: document.getElementById('input-stroke-width'),
             styleBtns: document.querySelectorAll('[data-style]'),
             arrowBtns: document.querySelectorAll('[data-arrow]'),
@@ -97,8 +100,13 @@ class FluxApp {
 
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
         this.dom.btnCloseSettings.addEventListener('click', () => this.dom.settingsModal.classList.add('hidden'));
-        this.dom.settingsModal.addEventListener('click', (e) => {
-            if (e.target === this.dom.settingsModal) this.dom.settingsModal.classList.add('hidden');
+        this.dom.btnColorPicker.addEventListener('click', () => this.dom.colorModal.classList.remove('hidden'));
+        this.dom.btnCloseColor.addEventListener('click', () => this.dom.colorModal.classList.add('hidden'));
+
+        [this.dom.settingsModal, this.dom.colorModal].forEach(modal => {
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) modal.classList.add('hidden');
+            });
         });
 
         this.dom.themeToggle.addEventListener('change', (e) => {
@@ -129,11 +137,12 @@ class FluxApp {
                         el.isAutoColor = false;
                     }
                 });
-                this.dom.colorDots.forEach(d => d.classList.toggle('active', d === dot));
+                
+                this.dom.colorModal.classList.add('hidden');
+                this.syncPickerButtonAppearance(color);
             });
         });
 
-        // UPDATE WIDTH IN REAL-TIME DURING SLIDER DRAG
         this.dom.strokeInput.addEventListener('input', (e) => {
             this.updateSelectedProperty(el => el.width = parseInt(e.target.value));
         });
@@ -161,6 +170,16 @@ class FluxApp {
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
 
+    syncPickerButtonAppearance(color) {
+        if (color === 'auto') {
+            this.dom.btnColorPicker.className = 'color-dot auto';
+            this.dom.btnColorPicker.style.background = '';
+        } else {
+            this.dom.btnColorPicker.className = 'color-dot';
+            this.dom.btnColorPicker.style.background = color;
+        }
+    }
+
     updateSelectedProperty(callback) {
         if (!this.whiteboard) return;
         this.whiteboard.interaction.selectedElements.forEach(callback);
@@ -180,14 +199,16 @@ class FluxApp {
                     const type = b.getAttribute('data-arrow');
                     b.classList.toggle('active', (type === 'start' && el.arrowStart) || (type === 'end' && el.arrowEnd));
                 });
+                
+                const currentColor = el.isAutoColor ? 'auto' : el.color;
+                this.syncPickerButtonAppearance(currentColor);
                 this.dom.colorDots.forEach(d => {
-                    const c = d.getAttribute('data-color');
-                    if (el.isAutoColor) d.classList.toggle('active', c === 'auto');
-                    else d.classList.toggle('active', c === el.color);
+                    d.classList.toggle('active', d.getAttribute('data-color') === currentColor);
                 });
             }
         } else {
             this.dom.editBar.classList.add('hidden');
+            this.dom.colorModal.classList.add('hidden');
         }
     }
 

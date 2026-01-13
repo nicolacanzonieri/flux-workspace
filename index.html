@@ -70,11 +70,7 @@
         <div id="edit-bar" class="edit-toolbar hidden">
             <div class="toolbar-scroll-container">
                 <div class="edit-group">
-                    <button class="color-dot auto active" data-color="auto" title="Auto color"></button>
-                    <button class="color-dot" data-color="#ff4757" style="background:#ff4757"></button>
-                    <button class="color-dot" data-color="#2ed573" style="background:#2ed573"></button>
-                    <button class="color-dot" data-color="#1e90ff" style="background:#1e90ff"></button>
-                    <button class="color-dot" data-color="#ffa502" style="background:#ffa502"></button>
+                    <button id="btn-color-picker" class="color-dot auto" title="Change color"></button>
                 </div>
                 <div class="toolbar-divider"></div>
                 <div class="edit-group">
@@ -186,6 +182,39 @@
                             ⚠️ Reset App & Update
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- COLOR SELECTOR MODAL -->
+        <div id="color-modal" class="modal-overlay hidden">
+            <div class="modal-content small-modal">
+                <div class="modal-header">
+                    <h2>Color</h2>
+                    <button id="btn-close-color" class="close-btn">×</button>
+                </div>
+                <div class="color-grid">
+                    <div class="color-option-wrapper">
+                        <button class="color-dot auto big" data-color="auto"></button>
+                        <span>Auto</span>
+                    </div>
+                    <div class="color-option-wrapper">
+                        <button class="color-dot big" data-color="#ffffff" style="background:#ffffff"></button>
+                        <span>White</span>
+                    </div>
+                    <div class="color-option-wrapper">
+                        <button class="color-dot big" data-color="#1a1a1d" style="background:#1a1a1d"></button>
+                        <span>Black</span>
+                    </div>
+                </div>
+                <div class="modal-divider"></div>
+                <div class="color-grid">
+                    <button class="color-dot big" data-color="#ff4757" style="background:#ff4757"></button>
+                    <button class="color-dot big" data-color="#2ed573" style="background:#2ed573"></button>
+                    <button class="color-dot big" data-color="#1e90ff" style="background:#1e90ff"></button>
+                    <button class="color-dot big" data-color="#ffa502" style="background:#ffa502"></button>
+                    <button class="color-dot big" data-color="#a29bfe" style="background:#a29bfe"></button>
+                    <button class="color-dot big" data-color="#fd79a8" style="background:#fd79a8"></button>
                 </div>
             </div>
         </div>
