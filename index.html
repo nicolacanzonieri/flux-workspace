@@ -18,21 +18,14 @@
 </head>
 <body>
 
-    <!-- SPLASH SCREEN -->
-    <div id="splash-screen">
-        <div class="flux-logo">
-            <div class="flux-core"></div>
-            <div class="flux-ring"></div>
-        </div>
-        <div class="loading-text">Initializing Workspace</div>
-    </div>
+    <!-- BLACK CURTAIN: Initial state is pure black -->
+    <div id="splash-screen"></div>
 
     <!-- APP CONTAINER -->
     <main id="app" class="hidden">
         
-        <!-- TOP NAVIGATION BAR -->
+        <!-- NAVIGATION -->
         <div class="top-nav">
-            <!-- HOME BUTTON -->
             <button id="btn-home" class="icon-btn home-btn hidden" aria-label="Home">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -40,10 +33,7 @@
                     </svg>
                 </div>
             </button>
-
             <div class="nav-separator"></div>
-
-            <!-- SETTINGS BUTTON -->
             <button id="btn-settings-toggle" class="icon-btn settings-btn" aria-label="Settings">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -55,23 +45,27 @@
 
         <!-- HOME MENU -->
         <div id="home-menu" class="menu-container">
-            <h1 class="app-title">Flux</h1>
-            <p class="app-subtitle">Digital Workspace</p>
+            <!-- The title starts centered and invisible -->
+            <h1 id="main-title" class="app-title initial-center">Flux</h1>
+            
+            <div id="menu-content" class="fade-content invisible">
+                <p class="app-subtitle">Digital Workspace</p>
 
-            <div class="action-buttons">
-                <button id="btn-new-board" class="flux-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
-                        <path d="M5 12h14"/><path d="M12 5v14"/>
-                    </svg>
-                    <span class="label">New Board</span>
-                </button>
+                <div class="action-buttons">
+                    <button id="btn-new-board" class="flux-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                            <path d="M5 12h14"/><path d="M12 5v14"/>
+                        </svg>
+                        <span class="label">New Board</span>
+                    </button>
 
-                <button id="btn-open-file" class="flux-btn">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
-                        <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M2 10h20"/>
-                    </svg>
-                    <span class="label">Open from File</span>
-                </button>
+                    <button id="btn-open-file" class="flux-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                            <path d="M20 20a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.9a2 2 0 0 1-1.69-.9L9.6 3.9A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M2 10h20"/>
+                        </svg>
+                        <span class="label">Open from File</span>
+                    </button>
+                </div>
             </div>
             <input type="file" id="file-input" accept=".json,.flux" style="display: none;" />
         </div>
@@ -121,9 +115,7 @@
             </div>
         </div>
 
-        <!-- CANVAS -->
         <canvas id="flux-canvas" class="hidden"></canvas>
-
     </main>
 
     <script src="js/whiteboard.js"></script>

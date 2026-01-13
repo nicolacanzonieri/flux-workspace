@@ -4,7 +4,7 @@
     --surface-color: #1a1a1d;
     --modal-bg: rgba(20, 20, 23, 0.85);
     --text-primary: #ffffff;
-    --text-secondary: #b1b1b1; /* Lighter, more visible silver-grey */
+    --text-secondary: #b1b1b1; 
     
     /* Neon Cyan Accent */
     --accent-color: #00d2ff; 
@@ -21,8 +21,11 @@
     /* Grid Color */
     --grid-dot-color: rgba(255, 255, 255, 0.15);
 
+    /* Safe Areas for Mobile Devices */
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
+    
+    /* Smooth Apple-style Easing */
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
@@ -32,7 +35,7 @@ body.light-mode {
     --surface-color: #ffffff;
     --modal-bg: rgba(255, 255, 255, 0.85);
     --text-primary: #1a1a1d;
-    --text-secondary: #666666; /* Balanced grey for light mode */
+    --text-secondary: #666666;
     --accent-color: #007aff; 
     --accent-glow: rgba(0, 122, 255, 0.2);
     --border-color: rgba(0, 0, 0, 0.1);
@@ -52,72 +55,86 @@ body {
     transition: background-color 0.5s ease, color 0.5s ease;
 }
 
-/* --- SPLASH SCREEN --- */
+/* --- SPLASH SCREEN (THE BLACK CURTAIN) --- */
 #splash-screen {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    background-color: var(--bg-color); z-index: 9999;
-    transition: opacity 0.8s var(--ease-out), visibility 0.8s;
+    background-color: #000000; z-index: 9999;
+    transition: opacity 1.2s var(--ease-out), visibility 1.2s;
 }
 #splash-screen.fade-out { opacity: 0; visibility: hidden; pointer-events: none; }
 
-.flux-logo { position: relative; width: 80px; height: 80px; margin-bottom: 20px; }
-.flux-core {
-    position: absolute; top: 50%; left: 50%; width: 20px; height: 20px;
-    background: var(--text-primary); border-radius: 50%; transform: translate(-50%, -50%);
-    box-shadow: 0 0 20px var(--accent-glow);
-}
-.flux-ring {
-    position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-    border: 2px solid var(--accent-color); border-radius: 50%; opacity: 0.8;
-    animation: spin-pulse 3s infinite linear;
-}
-.loading-text { font-size: 0.8rem; letter-spacing: 2px; text-transform: uppercase; color: var(--text-secondary); opacity: 0.7; }
-
-/* --- APP CONTAINER --- */
+/* --- APP MAIN CONTAINER --- */
 #app { width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in; position: relative; }
 #app.visible { opacity: 1; }
 
-/* --- HOME MENU --- */
+/* --- HOME MENU & TRANSITIONS --- */
 .menu-container {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-    text-align: center; width: 100%; max-width: 400px; padding: 20px;
+    text-align: center; 
+    width: 90%; 
+    max-width: 480px; /* Increased width for a more commanding presence */
+    padding: 20px;
     display: flex; flex-direction: column; align-items: center;
-    animation: slide-up 0.8s var(--ease-out);
     z-index: 10;
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transition: opacity 0.5s ease, transform 0.8s var(--ease-out);
 }
+
 .menu-container.hidden { 
-    opacity: 0; 
-    pointer-events: none; 
-    transform: translate(-50%, -40%);
+    opacity: 0; pointer-events: none; transform: translate(-50%, -40%);
 }
 
-.app-title { font-weight: 200; font-size: 3.5rem; letter-spacing: -2px; margin: 0; margin-bottom: 5px; }
-.app-subtitle { color: var(--text-secondary); font-size: 0.9rem; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 40px; }
-.action-buttons { display: flex; flex-direction: column; gap: 15px; width: 100%; }
+/* THE STAR OF THE SHOW: The App Title */
+.app-title {
+    font-weight: 200; font-size: 4.5rem; letter-spacing: -3px; margin: 0;
+    transition: all 1.2s var(--ease-out);
+    opacity: 0; /* Hidden by default for intro sequence */
+}
 
-/* --- BUTTONS --- */
+/* State: Centered during intro */
+.app-title.initial-center {
+    transform: translateY(40px);
+}
+
+/* State: Final menu positioning */
+.app-title:not(.initial-center) {
+    transform: translateY(-20px);
+}
+
+.app-title.fade-in { opacity: 1; }
+
+.fade-content { width: 100%; transition: opacity 1s ease, transform 1s var(--ease-out); }
+.fade-content.invisible { opacity: 0; transform: translateY(15px); }
+.fade-content.fade-in { opacity: 1; transform: translateY(0); }
+
+.app-subtitle { color: var(--text-secondary); font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 50px; margin-top: 5px; opacity: 0.8; }
+.action-buttons { display: flex; flex-direction: column; gap: 18px; width: 100%; }
+
+/* --- UNIFIED BUTTON STYLES (Menu) --- */
 .flux-btn {
     position: relative;
+    width: 100%; /* Ensures buttons fill the wider container */
     background: var(--glass-bg);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
-    padding: 18px 24px;
-    border-radius: 16px;
-    font-size: 1.1rem;
+    padding: 20px 32px; /* Increased padding for better vertical/horizontal scale */
+    border-radius: 18px;
+    font-size: 1.15rem;
     cursor: pointer;
     transition: all 0.3s var(--ease-out);
-    display: flex; align-items: center; justify-content: center; gap: 12px;
+    display: flex; align-items: center; justify-content: center; gap: 14px;
     backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); 
 }
+
+/* Hover effect for standard buttons (Cyan Neon) */
 .flux-btn:not(.danger-btn):hover {
     background: var(--btn-hover-bg);
     border-color: var(--accent-color);
-    box-shadow: 0 0 25px var(--accent-glow);
-    transform: translateY(-2px);
+    box-shadow: 0 0 30px var(--accent-glow);
+    transform: translateY(-3px);
 }
+
+/* RED NEON EFFECT (Danger Button) */
 .flux-btn.danger-btn { 
     border-color: rgba(255, 71, 87, 0.3); 
     color: var(--danger-color); 
@@ -125,35 +142,40 @@ body {
 .flux-btn.danger-btn:hover { 
     background: rgba(255, 71, 87, 0.1); 
     border-color: var(--danger-color); 
-    box-shadow: 0 0 25px var(--danger-glow);
-    transform: translateY(-2px);
+    box-shadow: 0 0 30px var(--danger-glow);
+    transform: translateY(-3px);
 }
-.flux-btn:active { transform: scale(0.96) translateY(0); }
-.icon-svg { width: 20px; height: 20px; stroke-width: 2px; stroke: currentColor; fill: none; }
 
-/* --- TOP NAVIGATION BAR --- */
+.flux-btn:active { transform: scale(0.97) translateY(0); }
+.icon-svg { width: 22px; height: 22px; stroke-width: 2px; stroke: currentColor; fill: none; }
+
+/* --- TOP NAVIGATION BAR (PIXEL-PERFECT PILL) --- */
 .top-nav {
     position: absolute; top: calc(var(--safe-top) + 20px); right: 20px;
     z-index: 20;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; 
+    align-items: center;
+    justify-content: center;
     background: var(--glass-bg);
     backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-color);
-    border-radius: 50px; padding: 4px;
+    border-radius: 50px; 
+    padding: 4px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
     transition: all 0.5s var(--ease-out);
-    gap: 0; overflow: hidden;
+    gap: 0;
+    overflow: hidden;
 }
 
 .nav-separator {
     width: 1px; height: 20px;
     background: var(--border-color);
-    margin: 0 4px; opacity: 0.5;
+    margin: 0 4px;
+    opacity: 0.5;
     transition: opacity 0.3s, width 0.4s var(--ease-out), margin 0.4s var(--ease-out);
     flex-shrink: 0;
 }
 
-/* UNIFIED ICON BUTTONS (Home & Settings) */
 .icon-btn {
     background: transparent; border: none; cursor: pointer;
     width: 44px; height: 44px;
@@ -165,23 +187,9 @@ body {
     flex-shrink: 0; 
 }
 
-.icon-btn:hover { 
-    color: var(--text-primary); 
-    background: var(--btn-hover-bg); 
-}
-
-.icon-btn .icon-wrapper {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-
-.icon-btn .icon-svg { 
-    width: 24px; height: 24px; 
-    stroke: currentColor;
-}
-
+.icon-btn:hover { color: var(--text-primary); background: var(--btn-hover-bg); }
+.icon-btn .icon-wrapper { display: flex; justify-content: center; align-items: center; transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+.icon-btn .icon-svg { width: 24px; height: 24px; stroke: currentColor; }
 .settings-btn:hover .icon-wrapper { transform: rotate(90deg); }
 
 .home-btn {
@@ -195,7 +203,7 @@ body {
     width: 0 !important; margin: 0 !important; opacity: 0 !important;
 }
 
-/* --- MODAL & TOGGLES --- */
+/* --- SETTINGS MODAL --- */
 .modal-overlay {
     position: fixed; top: 0; left: 0; width: 100%; height: 100%;
     background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px);
@@ -203,32 +211,40 @@ body {
     opacity: 0; visibility: hidden; transition: all 0.3s;
 }
 .modal-overlay:not(.hidden) { opacity: 1; visibility: visible; }
+
 .modal-content {
     background: var(--modal-bg);
     width: 90%; max-width: 450px; border-radius: 20px;
     border: 1px solid var(--border-color);
-    padding: 25px; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    padding: 25px;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
     transform: scale(0.9); transition: transform 0.3s var(--ease-out);
     display: flex; flex-direction: column; max-height: 80vh;
 }
 .modal-overlay:not(.hidden) .modal-content { transform: scale(1); }
+
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .modal-header h2 { margin: 0; font-weight: 300; }
 .close-btn { background: none; border: none; font-size: 2rem; color: var(--text-secondary); cursor: pointer; }
 .settings-scroll-area { overflow-y: auto; }
+
 .setting-section { margin-bottom: 25px; padding-bottom: 15px; border-bottom: 1px solid var(--border-color); }
+.setting-section.danger { border-bottom: none; }
 .setting-section h3 { font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 15px; }
 .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
 .description { font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px; }
 
+/* --- TOGGLES --- */
 .toggle-wrapper { position: relative; width: 60px; height: 30px; }
 .toggle-wrapper input { display: none; }
+
 .eclipse-toggle, .grid-toggle-label {
     position: absolute; top: 0; left: 0; width: 100%; height: 100%;
     background: #2a2a2e; border-radius: 30px; cursor: pointer;
     overflow: hidden; transition: background 0.5s ease;
     box-shadow: inset 0 2px 5px rgba(0,0,0,0.5);
 }
+
 .eclipse-sun {
     position: absolute; top: 3px; left: 3px; width: 24px; height: 24px;
     background: #ffdb4d; border-radius: 50%;
@@ -269,4 +285,3 @@ canvas.panning { cursor: grabbing !important; }
     50% { transform: scale(1.1) rotate(180deg); opacity: 1; border-color: var(--accent-color); box-shadow: 0 0 30px var(--accent-glow); }
     100% { transform: scale(0.9) rotate(360deg); opacity: 0.5; border-color: var(--text-secondary); }
 }
-@keyframes slide-up { from { opacity: 0; transform: translate(-50%, -30%); } to { opacity: 1; transform: translate(-50%, -50%); } }
