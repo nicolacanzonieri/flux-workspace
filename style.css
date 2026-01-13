@@ -113,7 +113,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .toolbar-scroll-container { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px; }
 .toolbar-scroll-container::-webkit-scrollbar { display: none; }
 
-.edit-group { position: relative; display: flex; align-items: center; gap: 8px; padding: 0 8px; }
+.edit-group { display: flex; align-items: center; gap: 8px; padding: 0 8px; }
 
 .tool-btn { background: transparent; border: none; cursor: pointer !important; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; border-radius: 16px; color: var(--text-secondary); transition: all 0.2s ease; flex-shrink: 0; }
 .tool-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
@@ -124,16 +124,20 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .tool-btn.action svg { width: 22px; height: 22px; }
 .danger-text { color: var(--danger-color) !important; }
 
-/* Color Elements */
+/* Color Picker Button & Dots */
 .color-dot { 
     width: 28px; height: 28px; border-radius: 50%; 
-    border: 1px solid var(--text-primary);
+    border: 1px solid var(--text-primary); /* Solido Nero/Bianco in base al tema */
     cursor: pointer; transition: transform 0.2s, border-color 0.3s; 
     flex-shrink: 0; position: relative; overflow: hidden;
 }
 .color-dot:hover { transform: scale(1.15); }
 .color-dot.active { border-width: 2px; border-color: var(--accent-color); transform: scale(1.1); }
-.color-dot.auto { background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); }
+
+/* Improved Auto Icon (Perfectly circular split) */
+.color-dot.auto { 
+    background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); 
+}
 .color-dot.big { width: 44px; height: 44px; }
 
 /* Stroke Modal Specifics */

@@ -370,13 +370,32 @@ class FluxWhiteboard {
     drawElements() {
         this.elements.forEach(el => {
             if (el.type === 'line') {
-                const p1 = this.worldToScreen(el.p1.x, el.p1.y);
-                const p2 = this.worldToScreen(el.p2.x, el.p2.y);
+                const screenP1 = this.worldToScreen(el.p1.x, el.p1.y);
+                const screenP2 = this.worldToScreen(el.p2.x, el.p2.y);
                 
+                const angle = Math.atan2(screenP2.y - screenP1.y, screenP2.x - screenP1.x);
+                const headlen = (el.width * 4 + 6) * this.view.scale;
+                
+                // LINE SHORTENING LOGIC:
+                // We shorten the line stroke by headlen so the rounded cap doesn't poke out.
+                let startX = screenP1.x;
+                let startY = screenP1.y;
+                let endX = screenP2.x;
+                let endY = screenP2.y;
+
+                if (el.arrowStart) {
+                    startX += headlen * 0.8 * Math.cos(angle);
+                    startY += headlen * 0.8 * Math.sin(angle);
+                }
+                if (el.arrowEnd) {
+                    endX -= headlen * 0.8 * Math.cos(angle);
+                    endY -= headlen * 0.8 * Math.sin(angle);
+                }
+
                 this.ctx.save();
                 this.ctx.beginPath();
-                this.ctx.moveTo(p1.x, p1.y);
-                this.ctx.lineTo(p2.x, p2.y);
+                this.ctx.moveTo(startX, startY);
+                this.ctx.lineTo(endX, endY);
                 
                 if (el.dashStyle === 'dashed') this.ctx.setLineDash([15 * this.view.scale, 10 * this.view.scale]);
                 else if (el.dashStyle === 'dotted') this.ctx.setLineDash([2 * this.view.scale, 8 * this.view.scale]);
@@ -387,13 +406,13 @@ class FluxWhiteboard {
                 this.ctx.lineCap = 'round';
                 this.ctx.stroke();
                 
-                // Draw Arrowheads with dynamic scaling and cap compensation
+                // Draw Arrowheads (they use original coords to sit at the tip)
                 if (el.arrowStart) this.drawArrowhead(el.p2, el.p1, el.color, el.width);
                 if (el.arrowEnd) this.drawArrowhead(el.p1, el.p2, el.color, el.width);
 
                 if (this.interaction.selectedElements.includes(el)) {
-                    this.drawHandle(p1.x, p1.y, el.color);
-                    this.drawHandle(p2.x, p2.y, el.color);
+                    this.drawHandle(screenP1.x, screenP1.y, el.color);
+                    this.drawHandle(screenP2.x, screenP2.y, el.color);
                 }
                 this.ctx.restore();
             }
@@ -402,29 +421,23 @@ class FluxWhiteboard {
 
     /**
      * @method drawArrowhead
-     * @description Draws an arrowhead that scales with line width and compensates for rounded caps.
+     * @description Draws an arrowhead exactly at the extreme of the line.
      */
     drawArrowhead(from, to, color, width) {
-        // Scaling head length proportional to width (min 10, scales up with thickness)
         const headlen = (width * 4 + 6) * this.view.scale;
         const angle = Math.atan2(to.y - from.y, to.x - from.x);
         const screenTo = this.worldToScreen(to.x, to.y);
 
-        // Compensation: Shift the arrow tip forward by half the line width 
-        // to ensure it perfectly covers the rounded cap of the line.
-        const tipX = screenTo.x + (width / 2 * this.view.scale) * Math.cos(angle);
-        const tipY = screenTo.y + (width / 2 * this.view.scale) * Math.sin(angle);
-
+        // Position the arrow tip exactly at the destination coordinate.
         this.ctx.beginPath();
-        this.ctx.moveTo(tipX, tipY);
-        // Use a wider spread angle (PI/6) for thick arrows to remain visible
+        this.ctx.moveTo(screenTo.x, screenTo.y);
         this.ctx.lineTo(
-            tipX - headlen * Math.cos(angle - Math.PI / 6), 
-            tipY - headlen * Math.sin(angle - Math.PI / 6)
+            screenTo.x - headlen * Math.cos(angle - Math.PI / 6), 
+            screenTo.y - headlen * Math.sin(angle - Math.PI / 6)
         );
         this.ctx.lineTo(
-            tipX - headlen * Math.cos(angle + Math.PI / 6), 
-            tipY - headlen * Math.sin(angle + Math.PI / 6)
+            screenTo.x - headlen * Math.cos(angle + Math.PI / 6), 
+            screenTo.y - headlen * Math.sin(angle + Math.PI / 6)
         );
         this.ctx.closePath();
         this.ctx.fillStyle = color;
