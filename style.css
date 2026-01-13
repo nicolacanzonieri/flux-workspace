@@ -72,7 +72,7 @@ body {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
     text-align: center; 
     width: 90%; 
-    max-width: 480px; /* Increased width for a more commanding presence */
+    max-width: 480px; 
     padding: 20px;
     display: flex; flex-direction: column; align-items: center;
     z-index: 10;
@@ -83,23 +83,14 @@ body {
     opacity: 0; pointer-events: none; transform: translate(-50%, -40%);
 }
 
-/* THE STAR OF THE SHOW: The App Title */
 .app-title {
     font-weight: 200; font-size: 4.5rem; letter-spacing: -3px; margin: 0;
     transition: all 1.2s var(--ease-out);
-    opacity: 0; /* Hidden by default for intro sequence */
+    opacity: 0; 
 }
 
-/* State: Centered during intro */
-.app-title.initial-center {
-    transform: translateY(40px);
-}
-
-/* State: Final menu positioning */
-.app-title:not(.initial-center) {
-    transform: translateY(-20px);
-}
-
+.app-title.initial-center { transform: translateY(40px); }
+.app-title:not(.initial-center) { transform: translateY(-20px); }
 .app-title.fade-in { opacity: 1; }
 
 .fade-content { width: 100%; transition: opacity 1s ease, transform 1s var(--ease-out); }
@@ -109,14 +100,14 @@ body {
 .app-subtitle { color: var(--text-secondary); font-size: 0.9rem; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 50px; margin-top: 5px; opacity: 0.8; }
 .action-buttons { display: flex; flex-direction: column; gap: 18px; width: 100%; }
 
-/* --- UNIFIED BUTTON STYLES (Menu) --- */
+/* --- BUTTONS --- */
 .flux-btn {
     position: relative;
-    width: 100%; /* Ensures buttons fill the wider container */
+    width: 100%; 
     background: var(--glass-bg);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
-    padding: 20px 32px; /* Increased padding for better vertical/horizontal scale */
+    padding: 20px 32px; 
     border-radius: 18px;
     font-size: 1.15rem;
     cursor: pointer;
@@ -126,7 +117,6 @@ body {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15); 
 }
 
-/* Hover effect for standard buttons (Cyan Neon) */
 .flux-btn:not(.danger-btn):hover {
     background: var(--btn-hover-bg);
     border-color: var(--accent-color);
@@ -134,7 +124,6 @@ body {
     transform: translateY(-3px);
 }
 
-/* RED NEON EFFECT (Danger Button) */
 .flux-btn.danger-btn { 
     border-color: rgba(255, 71, 87, 0.3); 
     color: var(--danger-color); 
@@ -149,7 +138,7 @@ body {
 .flux-btn:active { transform: scale(0.97) translateY(0); }
 .icon-svg { width: 22px; height: 22px; stroke-width: 2px; stroke: currentColor; fill: none; }
 
-/* --- TOP NAVIGATION BAR (PIXEL-PERFECT PILL) --- */
+/* --- TOP NAVIGATION BAR --- */
 .top-nav {
     position: absolute; top: calc(var(--safe-top) + 20px); right: 20px;
     z-index: 20;
@@ -275,7 +264,13 @@ body {
 #grid-toggle:checked + .grid-toggle-label .grid-knob { transform: translateX(30px); }
 
 /* --- CANVAS --- */
-canvas { display: block; width: 100%; height: 100%; touch-action: none; background-color: var(--bg-color); }
+canvas { 
+    display: block; 
+    width: 100%; 
+    height: 100%; 
+    touch-action: none; /* ESSENTIAL: Prevents iOS from scrolling the page */
+    background-color: var(--bg-color); 
+}
 canvas.hidden { display: none; }
 canvas.panning { cursor: grabbing !important; }
 
