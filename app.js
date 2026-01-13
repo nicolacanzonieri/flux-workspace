@@ -25,16 +25,21 @@ class FluxApp {
             settingsModal: document.getElementById('settings-modal'),
             colorModal: document.getElementById('color-modal'),
             strokeModal: document.getElementById('stroke-modal'),
+            shapesModal: document.getElementById('shapes-modal'),
             btnCloseColor: document.getElementById('btn-close-color'),
             btnCloseStroke: document.getElementById('btn-close-stroke'),
+            btnCloseShapes: document.getElementById('btn-close-shapes'),
             
             themeToggle: document.getElementById('theme-toggle'),
             gridToggle: document.getElementById('grid-toggle'),
             fileInput: document.getElementById('file-input'),
 
             btnColorPicker: document.getElementById('btn-color-picker'),
+            btnFillPicker: document.getElementById('btn-fill-picker'),
             btnStrokePicker: document.getElementById('btn-stroke-picker'),
             colorDots: document.querySelectorAll('#color-modal .color-dot'),
+            colorOptEmpty: document.getElementById('color-opt-empty'),
+            shapeOptBtns: document.querySelectorAll('.shape-opt-btn'),
             
             strokeSlider: document.getElementById('input-stroke-slider'),
             strokeNumber: document.getElementById('input-stroke-number'),
@@ -50,7 +55,8 @@ class FluxApp {
         this.state = {
             isReady: false,
             boardActive: false,
-            activeTool: 'select'
+            activeTool: 'select',
+            pickingMode: 'stroke'
         };
 
         this.whiteboard = null;
@@ -103,6 +109,7 @@ class FluxApp {
             btn.addEventListener('click', () => {
                 const tool = btn.getAttribute('data-tool');
                 if (tool === 'line') this.createLineAction();
+                else if (tool === 'shape') this.dom.shapesModal.classList.remove('hidden');
                 else this.selectTool(tool);
             });
         });
@@ -110,16 +117,25 @@ class FluxApp {
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
         this.dom.btnCloseSettings.addEventListener('click', () => this.dom.settingsModal.classList.add('hidden'));
         
-        this.dom.btnColorPicker.addEventListener('click', () => this.dom.colorModal.classList.remove('hidden'));
-        this.dom.btnCloseColor.addEventListener('click', () => this.dom.colorModal.classList.add('hidden'));
+        this.dom.btnColorPicker.addEventListener('click', () => {
+            this.state.pickingMode = 'stroke';
+            document.getElementById('color-modal-title').textContent = 'Stroke Color';
+            this.dom.colorModal.classList.remove('hidden');
+        });
         
+        this.dom.btnFillPicker.addEventListener('click', () => {
+            this.state.pickingMode = 'fill';
+            document.getElementById('color-modal-title').textContent = 'Fill Color';
+            this.dom.colorModal.classList.remove('hidden');
+        });
+        
+        this.dom.btnCloseColor.addEventListener('click', () => this.dom.colorModal.classList.add('hidden'));
         this.dom.btnStrokePicker.addEventListener('click', () => this.dom.strokeModal.classList.remove('hidden'));
         this.dom.btnCloseStroke.addEventListener('click', () => this.dom.strokeModal.classList.add('hidden'));
+        this.dom.btnCloseShapes.addEventListener('click', () => this.dom.shapesModal.classList.add('hidden'));
 
-        [this.dom.settingsModal, this.dom.colorModal, this.dom.strokeModal].forEach(modal => {
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) modal.classList.add('hidden');
-            });
+        [this.dom.settingsModal, this.dom.colorModal, this.dom.strokeModal, this.dom.shapesModal].forEach(modal => {
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.classList.add('hidden'); });
         });
 
         this.dom.themeToggle.addEventListener('change', (e) => {
@@ -140,24 +156,32 @@ class FluxApp {
         this.dom.colorDots.forEach(dot => {
             dot.addEventListener('click', () => {
                 const color = dot.getAttribute('data-color');
+                const isStroke = this.state.pickingMode === 'stroke';
+                
                 this.updateSelectedProperty(el => {
-                    if (color === 'auto') {
-                        const isLight = document.body.classList.contains('light-mode');
-                        el.color = isLight ? '#1a1a1d' : '#ffffff';
-                        el.isAutoColor = true;
+                    if (isStroke) {
+                        if (color === 'auto') {
+                            const isLight = document.body.classList.contains('light-mode');
+                            el.color = isLight ? '#1a1a1d' : '#ffffff'; el.isAutoColor = true;
+                        } else { el.color = color; el.isAutoColor = false; }
                     } else {
-                        el.color = color;
-                        el.isAutoColor = false;
+                        if (color === 'auto') {
+                            const isLight = document.body.classList.contains('light-mode');
+                            el.fillColor = isLight ? '#1a1a1d' : '#ffffff'; el.isAutoFill = true;
+                        } else { el.fillColor = color; el.isAutoFill = false; }
                     }
                 });
                 this.dom.colorModal.classList.add('hidden');
-                this.syncPickerButtonAppearance(color);
+                this.updateEditBar();
             });
         });
 
         const handleWidthChange = (val) => {
             const num = Math.min(Math.max(parseInt(val) || 1, 1), 50);
-            this.updateSelectedProperty(el => el.width = num);
+            this.updateSelectedProperty(el => {
+                if (el.type === 'shape') el.strokeWidth = num;
+                else el.width = num;
+            });
             this.syncStrokeUI(num);
         };
 
@@ -165,6 +189,16 @@ class FluxApp {
         this.dom.strokeNumber.addEventListener('change', (e) => handleWidthChange(e.target.value));
         this.dom.btnStrokeMinus.addEventListener('click', () => handleWidthChange(parseInt(this.dom.strokeNumber.value) - 1));
         this.dom.btnStrokePlus.addEventListener('click', () => handleWidthChange(parseInt(this.dom.strokeNumber.value) + 1));
+
+        this.dom.shapeOptBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const type = btn.getAttribute('data-shape');
+                const isLight = document.body.classList.contains('light-mode');
+                this.whiteboard.addShape(type, isLight ? '#1a1a1d' : '#ffffff');
+                this.dom.shapesModal.classList.add('hidden');
+                this.selectTool('select');
+            });
+        });
 
         this.dom.styleBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -195,14 +229,10 @@ class FluxApp {
         this.dom.strokeNumber.value = val;
     }
 
-    syncPickerButtonAppearance(color) {
-        if (color === 'auto') {
-            this.dom.btnColorPicker.className = 'color-dot auto';
-            this.dom.btnColorPicker.style.background = '';
-        } else {
-            this.dom.btnColorPicker.className = 'color-dot';
-            this.dom.btnColorPicker.style.background = color;
-        }
+    syncPickerButtonAppearance(btn, color, isAuto) {
+        if (isAuto) { btn.className = 'color-dot auto'; btn.style.background = ''; }
+        else if (color === 'transparent') { btn.className = 'color-dot transparent'; btn.style.background = ''; }
+        else { btn.className = 'color-dot'; btn.style.background = color; }
     }
 
     updateSelectedProperty(callback) {
@@ -218,23 +248,37 @@ class FluxApp {
             this.dom.editBar.classList.remove('hidden');
             if (selected.length === 1) {
                 const el = selected[0];
-                this.syncStrokeUI(el.width);
+                this.syncStrokeUI(el.strokeWidth || el.width || 3);
                 this.dom.styleBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-style') === el.dashStyle));
-                this.dom.arrowBtns.forEach(b => {
-                    const type = b.getAttribute('data-arrow');
-                    b.classList.toggle('active', (type === 'start' && el.arrowStart) || (type === 'end' && el.arrowEnd));
-                });
                 
-                const currentColor = el.isAutoColor ? 'auto' : el.color;
-                this.syncPickerButtonAppearance(currentColor);
-                this.dom.colorDots.forEach(d => {
-                    d.classList.toggle('active', d.getAttribute('data-color') === currentColor);
+                const isLine = el.type === 'line';
+                const isShape = el.type === 'shape';
+
+                this.dom.arrowBtns.forEach(b => {
+                    b.style.display = isLine ? 'flex' : 'none';
+                    const type = b.getAttribute('data-arrow');
+                    b.classList.toggle('active', isLine && ((type === 'start' && el.arrowStart) || (type === 'end' && el.arrowEnd)));
                 });
+                const arrowDivider = this.dom.arrowBtns[0].parentElement.previousElementSibling;
+                if(arrowDivider) arrowDivider.style.display = isLine ? 'block' : 'none';
+                
+                // Show Empty Option in Color Modal ONLY for Shapes
+                this.dom.colorOptEmpty.style.display = isShape ? 'flex' : 'none';
+
+                this.dom.btnFillPicker.style.display = isShape ? 'flex' : 'none';
+                if (isShape) {
+                    this.syncPickerButtonAppearance(this.dom.btnFillPicker, el.fillColor, el.isAutoFill);
+                }
+
+                this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
+            } else {
+                this.dom.arrowBtns.forEach(b => b.style.display = 'none');
             }
         } else {
             this.dom.editBar.classList.add('hidden');
             this.dom.colorModal.classList.add('hidden');
             this.dom.strokeModal.classList.add('hidden');
+            this.dom.shapesModal.classList.add('hidden');
         }
     }
 
@@ -248,10 +292,11 @@ class FluxApp {
 
     selectTool(toolId) {
         this.state.activeTool = toolId;
-        this.dom.toolBtns.forEach(btn => {
-            btn.classList.toggle('active', btn.getAttribute('data-tool') === toolId);
-        });
-        if (this.whiteboard) this.whiteboard.render();
+        this.dom.toolBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tool') === toolId));
+        if (this.whiteboard) {
+            this.whiteboard.render();
+            if (toolId !== 'select') { this.dom.editBar.classList.add('hidden'); this.whiteboard.interaction.selectedElements = []; }
+        }
     }
 
     startNewBoard() {
@@ -265,12 +310,8 @@ class FluxApp {
     }
 
     returnToHome() {
-        this.dom.canvas.classList.add('hidden');
-        this.dom.toolbar.classList.add('hidden');
-        this.dom.editBar.classList.add('hidden');
-        this.state.boardActive = false;
-        this.dom.btnHome.classList.add('hidden');
-        this.dom.menu.classList.remove('hidden');
+        this.dom.canvas.classList.add('hidden'); this.dom.toolbar.classList.add('hidden'); this.dom.editBar.classList.add('hidden');
+        this.state.boardActive = false; this.dom.btnHome.classList.add('hidden'); this.dom.menu.classList.remove('hidden');
     }
 
     async hardResetApp() {
@@ -285,16 +326,9 @@ class FluxApp {
                 const names = await caches.keys();
                 for (let n of names) await caches.delete(n);
             }
-            localStorage.clear();
-            sessionStorage.clear();
-            window.location.reload(true);
-        } catch (e) {
-            console.error("Flux Reset Failed:", e);
-            window.location.reload();
-        }
+            localStorage.clear(); sessionStorage.clear(); window.location.reload(true);
+        } catch (e) { console.error("Flux Reset Failed:", e); window.location.reload(); }
     }
 }
 
-document.addEventListener('DOMContentLoaded', () => { 
-    window.flux = new FluxApp(); 
-});
+document.addEventListener('DOMContentLoaded', () => { window.flux = new FluxApp(); });

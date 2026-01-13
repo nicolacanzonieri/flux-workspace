@@ -113,7 +113,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .toolbar-scroll-container { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px; }
 .toolbar-scroll-container::-webkit-scrollbar { display: none; }
 
-.edit-group { display: flex; align-items: center; gap: 8px; padding: 0 8px; }
+.edit-group { position: relative; display: flex; align-items: center; gap: 8px; padding: 0 8px; }
 
 .tool-btn { background: transparent; border: none; cursor: pointer !important; width: 50px; height: 50px; display: flex; justify-content: center; align-items: center; border-radius: 16px; color: var(--text-secondary); transition: all 0.2s ease; flex-shrink: 0; }
 .tool-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--text-primary); }
@@ -127,17 +127,25 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 /* Color Picker Button & Dots */
 .color-dot { 
     width: 28px; height: 28px; border-radius: 50%; 
-    border: 1px solid var(--text-primary); /* Solido Nero/Bianco in base al tema */
+    border: 1px solid var(--text-primary);
     cursor: pointer; transition: transform 0.2s, border-color 0.3s; 
     flex-shrink: 0; position: relative; overflow: hidden;
 }
 .color-dot:hover { transform: scale(1.15); }
 .color-dot.active { border-width: 2px; border-color: var(--accent-color); transform: scale(1.1); }
 
-/* Improved Auto Icon (Perfectly circular split) */
-.color-dot.auto { 
-    background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); 
+.color-dot.auto { background: linear-gradient(135deg, #ffffff 50%, #1a1a1d 50%); }
+
+/* Transparent/Empty Dot Icon */
+.color-dot.transparent { 
+    background-color: transparent; 
 }
+.color-dot.transparent::after {
+    content: ''; position: absolute; top: 50%; left: 50%;
+    width: 140%; height: 2px; background: #ff4757;
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
 .color-dot.big { width: 44px; height: 44px; }
 
 /* Stroke Modal Specifics */
@@ -162,6 +170,15 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 
 input[type="range"] { -webkit-appearance: none; background: var(--border-color); border-radius: 4px; }
 input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; background: var(--text-primary); border-radius: 50%; cursor: pointer; border: 2px solid var(--accent-color); }
+
+.shapes-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; width: 100%; padding-top: 10px; }
+.shape-opt-btn { 
+    background: var(--glass-bg); border: 1px solid var(--border-color); border-radius: 18px;
+    padding: 20px; color: var(--text-primary); cursor: pointer; transition: all 0.3s var(--ease-out);
+    display: flex; align-items: center; justify-content: center;
+}
+.shape-opt-btn:hover { background: var(--btn-hover-bg); border-color: var(--accent-color); transform: translateY(-3px); }
+.shape-opt-btn svg { width: 40px; height: 40px; }
 
 /* === 7. MODALS & TOGGLES === */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); z-index: 200; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: all 0.3s; }

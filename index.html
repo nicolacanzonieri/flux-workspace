@@ -71,6 +71,7 @@
             <div class="toolbar-scroll-container">
                 <div class="edit-group">
                     <button id="btn-color-picker" class="color-dot auto" title="Change color"></button>
+                    <button id="btn-fill-picker" class="color-dot transparent" title="Fill color" style="display:none"></button>
                 </div>
                 <div class="toolbar-divider"></div>
                 <div class="edit-group">
@@ -190,7 +191,7 @@
         <div id="color-modal" class="modal-overlay hidden">
             <div class="modal-content small-modal">
                 <div class="modal-header">
-                    <h2>Color</h2>
+                    <h2 id="color-modal-title">Color</h2>
                     <button id="btn-close-color" class="close-btn">×</button>
                 </div>
                 <div class="color-grid">
@@ -205,6 +206,11 @@
                     <div class="color-option-wrapper">
                         <button class="color-dot big" data-color="#1a1a1d" style="background:#1a1a1d"></button>
                         <span>Black</span>
+                    </div>
+                    <!-- Empty/Transparent option wrapper -->
+                    <div id="color-opt-empty" class="color-option-wrapper" style="display:none">
+                        <button class="color-dot transparent big" data-color="transparent"></button>
+                        <span>Empty</span>
                     </div>
                 </div>
                 <div class="modal-divider"></div>
@@ -235,6 +241,36 @@
                     <div class="slider-group">
                         <input type="range" id="input-stroke-slider" min="1" max="50" value="3" step="1">
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- SHAPES MODAL -->
+        <div id="shapes-modal" class="modal-overlay hidden">
+            <div class="modal-content small-modal">
+                <div class="modal-header">
+                    <h2>Add Shape</h2>
+                    <button id="btn-close-shapes" class="close-btn">×</button>
+                </div>
+                <div class="shapes-grid">
+                    <button class="shape-opt-btn" data-shape="rect" title="Rectangle">
+                        <svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </button>
+                    <button class="shape-opt-btn" data-shape="circle" title="Circle">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </button>
+                    <button class="shape-opt-btn" data-shape="triangle" title="Triangle">
+                        <svg viewBox="0 0 24 24"><path d="M12 4L4 20H20L12 4Z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </button>
+                    <button class="shape-opt-btn" data-shape="diamond" title="Diamond">
+                        <svg viewBox="0 0 24 24"><path d="M12 3L20 12L12 21L4 12L12 3Z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </button>
+                    <button class="shape-opt-btn" data-shape="hexagon" title="Hexagon">
+                        <svg viewBox="0 0 24 24"><path d="M12 3L19.8 7.5V16.5L12 21L4.2 16.5V7.5L12 3Z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </button>
+                    <button class="shape-opt-btn" data-shape="star" title="Star">
+                        <svg viewBox="0 0 24 24"><path d="M12 2L15 9H22L16 14L18 21L12 17L6 21L8 14L2 9H9L12 2Z" stroke="currentColor" stroke-width="2" fill="none"/></svg>
+                    </button>
                 </div>
             </div>
         </div>
