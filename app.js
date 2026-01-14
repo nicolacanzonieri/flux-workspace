@@ -18,7 +18,7 @@ class FluxApp {
             btnOpen: document.getElementById('btn-open-file'),
             btnSettings: document.getElementById('btn-settings-toggle'),
             btnHome: document.getElementById('btn-home'),
-            btnSave: document.getElementById('btn-save-project'), // Reference to the Save button
+            btnSave: document.getElementById('btn-save-project'),
             
             // Library Components
             libNav: document.querySelector('.top-left-nav'),
@@ -156,7 +156,6 @@ class FluxApp {
     bindEvents() {
         this.dom.btnNew.addEventListener('click', () => this.startNewBoard());
         
-        // Return Home with confirmation
         this.dom.btnHome.addEventListener('click', () => {
             if(confirm("Are you sure you want to return to Home? Unsaved progress will be lost if you haven't downloaded the project.")) {
                 this.returnToHome();
@@ -165,7 +164,6 @@ class FluxApp {
 
         this.dom.btnSave.addEventListener('click', () => this.downloadProjectZip());
 
-        // File Loading
         this.dom.btnOpen.addEventListener('click', () => this.dom.fileInput.click());
         this.dom.fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
 
@@ -276,17 +274,14 @@ class FluxApp {
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
 
-    // Handles ZIP or JSON import
     handleFileUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
 
-        // Check if file is ZIP
         if (file.name.endsWith('.zip')) {
              if (window.JSZip) {
                  const zip = new JSZip();
                  zip.loadAsync(file).then(contents => {
-                     // Look for a .json file in the root
                      const jsonFileName = Object.keys(contents.files).find(name => name.endsWith('.json'));
                      if (jsonFileName) {
                          return zip.file(jsonFileName).async("string");
@@ -303,12 +298,11 @@ class FluxApp {
                  alert("JSZip library not loaded.");
              }
         } else {
-            // Assume standard JSON or .flux
             const reader = new FileReader();
             reader.onload = (event) => this.loadProjectFromJSON(event.target.result);
             reader.readAsText(file);
         }
-        e.target.value = ""; // Reset input
+        e.target.value = "";
     }
 
     loadProjectFromJSON(jsonString) {
@@ -316,7 +310,6 @@ class FluxApp {
             const data = JSON.parse(jsonString);
             if (data.boards && Array.isArray(data.boards)) {
                 this.project = data;
-                // Load first board by default or active one if specified (not implemented in save format yet, defaulting to first)
                 if (this.project.boards.length > 0) {
                     this.loadProjectAndStart();
                 }
@@ -333,13 +326,12 @@ class FluxApp {
         this.dom.canvas.classList.remove('hidden');
         this.dom.toolbar.classList.remove('hidden');
         this.dom.btnHome.classList.remove('hidden');
-        this.dom.btnSave.classList.remove('hidden'); // Show Save Button
+        this.dom.btnSave.classList.remove('hidden');
         this.dom.libNav.classList.remove('hidden');
         
         this.state.boardActive = true;
         this.renderLibrary();
         
-        // Switch to the first board
         if (this.project.boards.length > 0) {
             this.switchToBoard(this.project.boards[0].id);
         }
@@ -391,7 +383,7 @@ class FluxApp {
             this.selectTool('select');
         };
         reader.readAsDataURL(file);
-        e.target.value = ""; // Reset for next selection
+        e.target.value = "";
     }
 
     routeToEditor(el) {
@@ -622,4 +614,13 @@ class FluxApp {
 
     async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of names) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
 }
+
+// REGISTER SERVICE WORKER
+if ('serviceWorker' in navigator) {
+    // Attempt to register the SW located at the root
+    navigator.serviceWorker.register('./sw.js')
+        .then(() => console.log('Flux Service Worker Registered'))
+        .catch(err => console.error('Flux Service Worker Failed:', err));
+}
+
 document.addEventListener('DOMContentLoaded', () => window.flux = new FluxApp());
