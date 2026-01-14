@@ -30,7 +30,9 @@ class FluxWhiteboard {
             isSelecting: false, selectionBox: null, selectedElements: [],
             draggedElement: null, draggedHandle: null, lastMouseX: 0, lastMouseY: 0,
             dragLastWorldPos: { x: 0, y: 0 }, initialTouchDistance: 0, initialTouchCenter: { x: 0, y: 0 },
-            lastClickTime: 0
+            lastClickTime: 0,
+            // Proportional scaling data
+            initialWidth: 0, initialHeight: 0, aspectRatio: 1, initialFontSize: 16
         };
 
         this.history = {
@@ -63,7 +65,7 @@ class FluxWhiteboard {
         const cleanElements = this.elements.map(el => {
             const copy = { ...el };
             if (copy.renderedImage) delete copy.renderedImage;
-            if (copy.imgObj) delete copy.imgObj; // Transient image object
+            if (copy.imgObj) delete copy.imgObj; 
             return copy;
         });
 
@@ -165,7 +167,6 @@ class FluxWhiteboard {
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
         const newImg = { id: Date.now(), type: 'image', src, x: center.x - 150, y: center.y - 150, width: 300, height: 300, imgObj: null };
         
-        // Pre-load image to get aspect ratio
         const temp = new Image();
         temp.onload = () => {
             const ratio = temp.width / temp.height;
@@ -263,37 +264,37 @@ class FluxWhiteboard {
                 const h = handles[i];
                 if (Math.hypot(mouse.x - h.x, mouse.y - h.y) * this.view.scale < this.config.handleHitThreshold) {
                     this.saveHistory();
-                    this.interaction.isDraggingHandle = true; this.interaction.draggedElement = el;
-                    this.interaction.draggedHandle = i; return;
+                    this.interaction.isDraggingHandle = true; 
+                    this.interaction.draggedElement = el;
+                    this.interaction.draggedHandle = i; 
+                    // Store initial data for proportional scaling
+                    this.interaction.initialWidth = el.width || 0;
+                    this.interaction.initialHeight = el.height || 0;
+                    this.interaction.aspectRatio = (el.width / el.height) || 1;
+                    this.interaction.initialFontSize = el.fontSize || 16;
+                    return;
                 }
             }
         }
 
-        // 5. SELECTION AND DRAGGING ELEMENTS
         if (tool === 'select') {
             let hitFound = false;
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (this.isPointInElement(mouse, el)) {
-                    if (!this.interaction.selectedElements.includes(el)) {
-                        this.interaction.selectedElements = [el];
-                    }
+                    if (!this.interaction.selectedElements.includes(el)) this.interaction.selectedElements = [el];
                     this.saveHistory();
                     this.interaction.isDraggingElements = true; 
                     this.interaction.dragLastWorldPos = mouse;
-                    hitFound = true; 
-                    break;
+                    hitFound = true; break;
                 }
             }
             if (!hitFound) { 
-                this.interaction.selectedElements = []; 
-                this.interaction.isSelecting = true; 
+                this.interaction.selectedElements = []; this.interaction.isSelecting = true; 
                 this.interaction.selectionBox = { startX: mouse.x, startY: mouse.y, currentX: mouse.x, currentY: mouse.y }; 
             }
         }
-
-        this.render(); 
-        if(window.flux) window.flux.updateEditBar();
+        this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
     handleMouseMove(e) {
@@ -338,19 +339,49 @@ class FluxWhiteboard {
     resizeElement(el, handleIdx, mouse) {
         if (el.renderedImage) el.renderedImage = null; 
         if (el.type === 'line') { const key = handleIdx === 0 ? 'p1' : 'p2'; el[key].x = mouse.x; el[key].y = mouse.y; return; }
+        
         if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
-            const minSize = 20, right = el.x + el.width, bottom = el.y + el.height;
+            const minSize = 20;
+            const right = el.x + el.width;
+            const bottom = el.y + el.height;
+            const isCorner = [0, 2, 4, 6].includes(handleIdx);
+            const ratio = this.interaction.aspectRatio;
+
+            // 1. Calculate base new dimensions
             switch(handleIdx) {
-                case 0: el.width = right - mouse.x; el.height = bottom - mouse.y; el.x = mouse.x; el.y = mouse.y; break;
-                case 1: el.height = bottom - mouse.y; el.y = mouse.y; break;
-                case 2: el.width = mouse.x - el.x; el.height = bottom - mouse.y; el.y = mouse.y; break;
+                case 0: el.width = right - mouse.x; el.height = bottom - mouse.y; break;
+                case 1: el.height = bottom - mouse.y; break;
+                case 2: el.width = mouse.x - el.x; el.height = bottom - mouse.y; break;
                 case 3: el.width = mouse.x - el.x; break;
                 case 4: el.width = mouse.x - el.x; el.height = mouse.y - el.y; break;
                 case 5: el.height = mouse.y - el.y; break;
-                case 6: el.width = right - mouse.x; el.height = mouse.y - el.y; el.x = mouse.x; break;
-                case 7: el.width = right - mouse.x; el.x = mouse.x; break;
+                case 6: el.width = right - mouse.x; el.height = mouse.y - el.y; break;
+                case 7: el.width = right - mouse.x; break;
             }
-            if (el.width < minSize) el.width = minSize; if (el.height < minSize) el.height = minSize;
+
+            // 2. Enforce Proportional scaling for corners
+            if (isCorner) {
+                // We base the proportional size on the largest change to feel natural
+                if (el.width / ratio > el.height) el.height = el.width / ratio;
+                else el.width = el.height * ratio;
+            }
+
+            // 3. Prevent going below minSize
+            if (el.width < minSize) { el.width = minSize; el.height = el.width / ratio; }
+            if (el.height < minSize) { el.height = minSize; el.width = el.height * ratio; }
+
+            // 4. Reposition based on anchor
+            if (handleIdx === 0) { el.x = right - el.width; el.y = bottom - el.height; }
+            else if (handleIdx === 1) { el.y = bottom - el.height; }
+            else if (handleIdx === 2) { el.y = bottom - el.height; }
+            else if (handleIdx === 6) { el.x = right - el.width; }
+            else if (handleIdx === 7) { el.x = right - el.width; }
+
+            // 5. Special logic for text: scale fontSize
+            if (el.type === 'text') {
+                const scaleFactor = el.width / this.interaction.initialWidth;
+                el.fontSize = Math.max(4, this.interaction.initialFontSize * scaleFactor);
+            }
         }
     }
 
