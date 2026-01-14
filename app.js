@@ -39,7 +39,13 @@ class FluxApp {
             editorOverlay: document.getElementById('markdown-editor-overlay'),
             mdInput: document.getElementById('md-input'),
             btnCloseEditor: document.getElementById('btn-close-editor'),
-            mdBtns: document.querySelectorAll('.md-btn'), // New MD buttons
+            mdBtns: document.querySelectorAll('.md-btn'), 
+
+            // Formula Editor
+            formulaOverlay: document.getElementById('formula-editor-overlay'),
+            formulaInput: document.getElementById('formula-input'),
+            btnCloseFormula: document.getElementById('btn-close-formula'),
+            latexBtns: document.querySelectorAll('.latex-btn'),
 
             btnCloseColor: document.getElementById('btn-close-color'),
             btnCloseStroke: document.getElementById('btn-close-stroke'),
@@ -87,33 +93,26 @@ class FluxApp {
             boards: []
         };
         
-        // Storage for external CSS content (KaTeX) to inject into SVGs
         this.katexStyles = "";
-        
         this.whiteboard = null;
         this.init();
     }
 
     async init() {
         console.log("Flux: Initializing Workspace...");
-        
-        // Pre-fetch KaTeX CSS for rendering
         this.loadExternalStyles();
-
         if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
         this.loadSettings(); this.revealApplication(); this.bindEvents();
     }
 
     async loadExternalStyles() {
         try {
-            // Fetch the CSS text content to inject into foreignObject later
             const response = await fetch('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');
             if (response.ok) {
                 this.katexStyles = await response.text();
-                console.log("Flux: KaTeX styles loaded for rendering.");
             }
         } catch (e) {
-            console.warn("Flux: Failed to load KaTeX styles (offline?). Formulas may look unstyled.", e);
+            console.warn("Flux: Failed to load KaTeX styles.", e);
         }
     }
 
@@ -126,10 +125,6 @@ class FluxApp {
         this.dom.menuContent.classList.add('fade-in'); this.state.isReady = true;
     }
 
-    /**
-     * @method saveCurrentBoardState
-     * @description Syncs the current whiteboard engine data back to the boards array.
-     */
     saveCurrentBoardState() {
         if (this.state.activeBoardId && this.whiteboard) {
             const board = this.project.boards.find(b => b.id === this.state.activeBoardId);
@@ -164,6 +159,7 @@ class FluxApp {
             if(t === 'line') this.createLineAction();
             else if(t === 'shape') this.dom.shapesModal.classList.remove('hidden');
             else if(t === 'text') this.createTextAction();
+            else if(t === 'formula') this.createFormulaAction();
             else this.selectTool(t);
         }));
 
@@ -174,25 +170,33 @@ class FluxApp {
         
         [this.dom.btnCloseSettings, this.dom.btnCloseColor, this.dom.btnCloseStroke, this.dom.btnCloseShapes].forEach(b => b.addEventListener('click', () => b.closest('.modal-overlay').classList.add('hidden')));
 
-        // Markdown Editor Events
-        this.dom.btnEditText.addEventListener('click', () => this.openMarkdownEditor());
+        this.dom.btnEditText.addEventListener('click', () => {
+            const sel = this.whiteboard.interaction.selectedElements[0];
+            if (sel) this.routeToEditor(sel);
+        });
+
         this.dom.btnCloseEditor.addEventListener('click', () => this.saveAndCloseMarkdownEditor());
-        
-        // Handle MD Toolbar buttons
         this.dom.mdBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
-                e.preventDefault(); // prevent focus loss
+                e.preventDefault();
                 this.handleMarkdownButton(btn.getAttribute('data-md'));
             });
         });
+
+        this.dom.btnCloseFormula.addEventListener('click', () => this.saveAndCloseFormulaEditor());
+        this.dom.latexBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                this.handleLatexButton(btn.getAttribute('data-latex'));
+            });
+        });
         
-        // Double click on canvas to edit text (handled via custom event from whiteboard)
         this.dom.canvas.addEventListener('flux-doubleclick', (e) => {
              const el = e.detail.element;
              if (el && el.type === 'text') {
                  this.whiteboard.interaction.selectedElements = [el];
                  this.updateEditBar();
-                 this.openMarkdownEditor();
+                 this.routeToEditor(el);
              }
         });
 
@@ -201,7 +205,6 @@ class FluxApp {
             localStorage.setItem('flux-theme', isL ? 'light' : 'dark'); 
             if(this.whiteboard) {
                 this.whiteboard.updateThemeColors(isL);
-                // Force re-render of text elements to update color in SVG
                 this.whiteboard.elements.forEach(el => { if(el.type === 'text') el.renderedImage = null; });
                 this.whiteboard.render();
             }
@@ -220,7 +223,7 @@ class FluxApp {
                     if(color === 'auto') { el.fillColor = document.body.classList.contains('light-mode') ? '#1a1a1d' : '#ffffff'; el.isAutoFill = true; }
                     else { el.fillColor = color; el.isAutoFill = false; }
                 }
-                if (el.type === 'text') el.renderedImage = null; // Invalidate cache
+                if (el.type === 'text') el.renderedImage = null;
             });
             this.dom.colorModal.classList.add('hidden'); this.updateEditBar();
         }));
@@ -253,52 +256,52 @@ class FluxApp {
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
 
-    // --- Editor Logic ---
+    /**
+     * @method routeToEditor
+     * @description Determines if the element is a LaTeX formula or Markdown text and opens the correct editor.
+     */
+    routeToEditor(el) {
+        if (!el || el.type !== 'text') return;
+        const content = el.content.trim();
+        if (content.startsWith('$$') && content.endsWith('$$')) {
+            this.openFormulaEditor();
+        } else {
+            this.openMarkdownEditor();
+        }
+    }
 
     openMarkdownEditor() {
         const el = this.whiteboard.interaction.selectedElements[0];
         if (!el || el.type !== 'text') return;
-
         this.state.editingElementId = el.id;
         this.dom.mdInput.value = el.content;
         this.dom.editorOverlay.classList.remove('hidden');
-        
-        // Hide other UI elements to focus on editor (except top nav)
         this.dom.editBar.classList.add('hidden');
         this.dom.toolbar.classList.add('hidden');
-        
-        // Focus textarea
         setTimeout(() => this.dom.mdInput.focus(), 100);
     }
 
     saveAndCloseMarkdownEditor() {
         const text = this.dom.mdInput.value;
         const elId = this.state.editingElementId;
-        
         if (elId && this.whiteboard) {
             const el = this.whiteboard.elements.find(e => e.id === elId);
             if (el) {
                 el.content = text;
-                el.renderedImage = null; // Invalidate cache to trigger re-render
+                el.renderedImage = null; 
                 this.whiteboard.render();
             }
         }
-        
         this.state.editingElementId = null;
         this.dom.editorOverlay.classList.add('hidden');
         this.dom.toolbar.classList.remove('hidden');
-        this.updateEditBar(); // Restore edit bar
+        this.updateEditBar();
     }
 
     handleMarkdownButton(type) {
         const input = this.dom.mdInput;
-        const start = input.selectionStart;
-        const end = input.selectionEnd;
-        const text = input.value;
-        const selected = text.substring(start, end);
-        
+        const start = input.selectionStart, end = input.selectionEnd, text = input.value, selected = text.substring(start, end);
         let prefix = '', suffix = '';
-        
         switch(type) {
             case 'asterisk': prefix = '*'; break;
             case 'backslash': prefix = '\\'; break;
@@ -309,34 +312,74 @@ class FluxApp {
             case 'math-inline': prefix = '$'; suffix = '$'; break;
             case 'math-block': prefix = '$$'; suffix = '$$'; break;
         }
-
         const replacement = prefix + selected + suffix;
         input.setRangeText(replacement);
-        
-        // Restore focus and update cursor position
         input.focus();
-        if (selected.length === 0) {
-            // If no text selected, put cursor inside the delimiters (or after the char)
-            input.setSelectionRange(start + prefix.length, start + prefix.length);
-        } else {
-            // If text selected, highlight the wrapped text
-            input.setSelectionRange(start, start + replacement.length);
+        if (selected.length === 0) input.setSelectionRange(start + prefix.length, start + prefix.length);
+        else input.setSelectionRange(start, start + replacement.length);
+    }
+
+    createFormulaAction() {
+        if (this.whiteboard) {
+            const isL = document.body.classList.contains('light-mode');
+            this.whiteboard.addFormula(isL ? '#1a1a1d' : '#ffffff');
+            this.openFormulaEditor();
         }
     }
 
-    // --- End Editor Logic ---
+    openFormulaEditor() {
+        const el = this.whiteboard.interaction.selectedElements[0];
+        if (!el || el.type !== 'text') return;
+        this.state.editingElementId = el.id;
+        let content = el.content;
+        if (content.startsWith('$$') && content.endsWith('$$')) {
+            content = content.substring(2, content.length - 2).trim();
+        }
+        this.dom.formulaInput.value = content;
+        this.dom.formulaOverlay.classList.remove('hidden');
+        this.dom.editBar.classList.add('hidden');
+        this.dom.toolbar.classList.add('hidden');
+        setTimeout(() => this.dom.formulaInput.focus(), 100);
+    }
+
+    saveAndCloseFormulaEditor() {
+        const rawLatex = this.dom.formulaInput.value;
+        const elId = this.state.editingElementId;
+        if (elId && this.whiteboard) {
+            const el = this.whiteboard.elements.find(e => e.id === elId);
+            if (el) {
+                el.content = `$$ ${rawLatex} $$`;
+                el.renderedImage = null; 
+                this.whiteboard.render();
+            }
+        }
+        this.state.editingElementId = null;
+        this.dom.formulaOverlay.classList.add('hidden');
+        this.dom.toolbar.classList.remove('hidden');
+        this.updateEditBar();
+        this.selectTool('select');
+    }
+
+    handleLatexButton(latex) {
+        const input = this.dom.formulaInput;
+        const start = input.selectionStart;
+        let insertText = latex, cursorOffset = latex.length;
+        if (latex.includes('{}')) cursorOffset = latex.indexOf('{}') + 1; 
+        else if (latex.endsWith('{}')) cursorOffset = latex.length - 1;
+        input.setRangeText(insertText);
+        input.focus();
+        input.setSelectionRange(start + cursorOffset, start + cursorOffset);
+    }
 
     syncStrokeUI(v) { this.dom.btnStrokePicker.textContent = `${v}px`; this.dom.strokeSlider.value = v; this.dom.strokeNumber.value = v; }
     syncPickerButtonAppearance(btn, c, isA) { if(isA){ btn.className='color-dot auto'; btn.style.background=''; } else if(c==='transparent'){ btn.className='color-dot transparent'; btn.style.background=''; } else { btn.className='color-dot'; btn.style.background=c; } }
     updateSelectedProperty(cb) { if(this.whiteboard) { this.whiteboard.interaction.selectedElements.forEach(cb); this.whiteboard.render(); this.updateEditBar(); } }
 
     updateEditBar() {
-        // SAFETY CHECK: Never show edit bar if the markdown editor is active
         if (this.state.editingElementId) {
             this.dom.editBar.classList.add('hidden');
             return;
         }
-
         if(!this.whiteboard) return;
         const sel = this.whiteboard.interaction.selectedElements;
         if(sel.length > 0) {
@@ -369,8 +412,6 @@ class FluxApp {
         this.project.boards.forEach(board => {
             const item = document.createElement('div');
             item.className = `library-item ${board.id === this.state.activeBoardId ? 'active' : ''}`;
-            
-            // Build inner content HTML
             item.innerHTML = `
                 <div class="lib-item-info">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>
@@ -385,70 +426,34 @@ class FluxApp {
                     </button>
                 </div>
             `;
-
-            // Event Listeners
-            // Switch board (click on name/info)
-            item.querySelector('.lib-item-info').addEventListener('click', () => { 
-                this.switchToBoard(board.id); 
-                this.dom.libPopup.classList.add('hidden'); 
-            });
-
-            // Rename
+            item.querySelector('.lib-item-info').addEventListener('click', () => { this.switchToBoard(board.id); this.dom.libPopup.classList.add('hidden'); });
             item.querySelector('.rename').addEventListener('click', (e) => {
-                e.stopPropagation(); // prevent switching board
+                e.stopPropagation();
                 const newName = prompt("Rename Board", board.name);
-                if(newName && newName.trim() !== "") {
-                    board.name = newName.trim();
-                    this.renderLibrary();
-                }
+                if(newName && newName.trim() !== "") { board.name = newName.trim(); this.renderLibrary(); }
             });
-
-            // Delete Logic Updated
             item.querySelector('.delete').addEventListener('click', (e) => {
-                e.stopPropagation(); // prevent switching board
+                e.stopPropagation();
                 if(confirm(`Are you sure you want to delete "${board.name}"?`)) {
-                    // Remove the board from array
                     this.project.boards = this.project.boards.filter(b => b.id !== board.id);
-                    
-                    if (this.project.boards.length === 0) {
-                        // If no boards left, go home
-                        this.returnToHome();
-                    } else if(this.state.activeBoardId === board.id) {
-                        // If we deleted the ACTIVE board, switch to the last available one
-                        const lastBoard = this.project.boards[this.project.boards.length - 1];
-                        this.switchToBoard(lastBoard.id);
-                    } else {
-                        // If we deleted an inactive board, just update list
-                        this.renderLibrary();
-                    }
+                    if (this.project.boards.length === 0) this.returnToHome();
+                    else if(this.state.activeBoardId === board.id) this.switchToBoard(this.project.boards[this.project.boards.length - 1].id);
+                    else this.renderLibrary();
                 }
             });
-
             this.dom.libBoardList.appendChild(item);
         });
     }
 
-    /**
-     * @method switchToBoard
-     * @description Switches the active view to a different board within the same project.
-     */
     switchToBoard(id) {
         this.saveCurrentBoardState();
-
         this.state.activeBoardId = id;
-        
         const board = this.project.boards.find(b => b.id === id);
-
         if (this.whiteboard && board) {
-            this.whiteboard.loadState({
-                elements: board.elements,
-                view: board.view
-            });
-            
+            this.whiteboard.loadState({ elements: board.elements, view: board.view });
             this.updateEditBar();
             this.whiteboard.render();
         }
-
         this.renderLibrary();
     }
 
@@ -458,66 +463,41 @@ class FluxApp {
     }
 
     startNewBoard() {
-        if (this.project.boards.length === 0) {
-            this.addNewBoardToProject("Initial Board");
-        }
-
+        if (this.project.boards.length === 0) this.addNewBoardToProject("Initial Board");
         this.dom.menu.classList.add('hidden');
         this.dom.canvas.classList.remove('hidden');
         this.dom.toolbar.classList.remove('hidden');
         this.dom.btnHome.classList.remove('hidden');
         this.dom.libNav.classList.remove('hidden');
-        
         if(this.whiteboard) this.whiteboard.resize();
         this.state.boardActive = true;
         this.renderLibrary();
     }
 
-    /**
-     * @method addNewBoardToProject
-     * @description Adds a new board to the current active project.
-     */
     addNewBoardToProject(name) {
         this.saveCurrentBoardState();
         const id = Date.now();
         const boardName = name || `Board ${this.project.boards.length + 1}`;
-        
-        const newBoard = { 
-            id, 
-            name: boardName, 
-            elements: [], 
-            view: { offsetX: window.innerWidth / 2, offsetY: window.innerHeight / 2, scale: 1 } 
-        };
-        
+        const newBoard = { id, name: boardName, elements: [], view: { offsetX: window.innerWidth / 2, offsetY: window.innerHeight / 2, scale: 1 } };
         this.project.boards.push(newBoard);
         this.state.activeBoardId = id;
-
-        if(this.whiteboard) {
-            this.whiteboard.clearBoard();
-        }
+        if(this.whiteboard) this.whiteboard.clearBoard();
         this.renderLibrary();
     }
 
     returnToHome() {
-        this.project = {
-            name: "Untitled Project",
-            boards: []
-        };
+        this.project = { name: "Untitled Project", boards: [] };
         this.state.activeBoardId = null;
-
-        // Reset UI
         this.dom.canvas.classList.add('hidden'); 
         this.dom.toolbar.classList.add('hidden'); 
         this.dom.editBar.classList.add('hidden');
         this.dom.btnHome.classList.add('hidden'); 
         this.dom.libNav.classList.add('hidden'); 
-        
         this.state.boardActive = false; 
         this.dom.menu.classList.remove('hidden');
-        
         this.renderLibrary();
     }
 
-    async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of names) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
+    async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of ns) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
 }
 document.addEventListener('DOMContentLoaded', () => window.flux = new FluxApp());

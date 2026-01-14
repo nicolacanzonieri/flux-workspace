@@ -111,6 +111,12 @@ class FluxWhiteboard {
         this.elements.push(newText); this.interaction.selectedElements = [newText]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
+    addFormula(color) {
+        const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+        const newFormula = { id: Date.now(), type: 'text', content: "$$ x = 0 $$", x: center.x - 100, y: center.y - 50, width: 200, height: 100, color, isAutoColor: true, fontSize: 16, renderedImage: null };
+        this.elements.push(newFormula); this.interaction.selectedElements = [newFormula]; this.render(); if(window.flux) window.flux.updateEditBar();
+    }
+
     duplicateSelected() {
         const newSelected = [];
         this.interaction.selectedElements.forEach(el => {

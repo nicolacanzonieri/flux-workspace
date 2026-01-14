@@ -104,17 +104,17 @@
         <!-- MARKDOWN EDITOR OVERLAY -->
         <div id="markdown-editor-overlay" class="editor-overlay hidden">
             <div class="editor-header">
-                <span class="editor-title">Markdown / LaTeX Editor</span>
+                <span class="editor-title">Markdown Editor</span>
                 <button id="btn-close-editor" class="tool-btn text-btn">Done</button>
             </div>
-            <textarea id="md-input" class="markdown-textarea" placeholder="Type Markdown or LaTeX (e.g. $E=mc^2$)..." spellcheck="false"></textarea>
+            <textarea id="md-input" class="markdown-textarea" placeholder="Type Markdown..." spellcheck="false"></textarea>
             
-            <!-- NEW EDITOR TOOLBAR -->
+            <!-- EDITOR TOOLBAR -->
             <div class="editor-toolbar-bottom">
-                <button class="md-btn" data-md="asterisk" title="Asterisk">*</button>
+                <button class="md-btn" data-md="asterisk" title="Bold / Asterisk">*</button>
                 <button class="md-btn" data-md="backslash" title="Backslash">\</button>
                 <div class="md-separator"></div>
-                <button class="md-btn" data-md="hash" title="Hash">#</button>
+                <button class="md-btn" data-md="hash" title="Header">#</button>
                 <button class="md-btn" data-md="list" title="List">
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                 </button>
@@ -127,6 +127,40 @@
                 <div class="md-separator"></div>
                 <button class="md-btn" data-md="math-inline" title="Inline Math">$</button>
                 <button class="md-btn" data-md="math-block" title="Block Math">$$</button>
+            </div>
+        </div>
+
+        <!-- FORMULA EDITOR OVERLAY (NEW) -->
+        <div id="formula-editor-overlay" class="editor-overlay hidden">
+            <div class="editor-header">
+                <span class="editor-title">LaTeX Equation Editor</span>
+                <button id="btn-close-formula" class="tool-btn text-btn">Done</button>
+            </div>
+            <textarea id="formula-input" class="markdown-textarea" placeholder="Type LaTeX equation..." spellcheck="false"></textarea>
+            
+            <!-- LATEX TOOLBAR -->
+            <div class="editor-toolbar-bottom">
+                <button class="latex-btn" data-latex="{" title="Open Brace">{</button>
+                <button class="latex-btn" data-latex="}" title="Close Brace">}</button>
+                <div class="md-separator"></div>
+                <button class="latex-btn" data-latex="\frac{}{}" title="Fraction">
+                    <span style="font-family:serif; font-style:italic">a/b</span>
+                </button>
+                <button class="latex-btn" data-latex="\sqrt{}" title="Square Root">√</button>
+                <button class="latex-btn" data-latex="^" title="Power">x²</button>
+                <button class="latex-btn" data-latex="_" title="Subscript">x₂</button>
+                <div class="md-separator"></div>
+                <button class="latex-btn" data-latex="\int" title="Integral">∫</button>
+                <button class="latex-btn" data-latex="\sum" title="Sum">∑</button>
+                <button class="latex-btn" data-latex="\infty" title="Infinity">∞</button>
+                <button class="latex-btn" data-latex="\pi" title="Pi">π</button>
+                <button class="latex-btn" data-latex="\alpha" title="Alpha">α</button>
+                <button class="latex-btn" data-latex="\beta" title="Beta">β</button>
+                <div class="md-separator"></div>
+                <button class="latex-btn" data-latex="=" title="Equals">=</button>
+                <button class="latex-btn" data-latex="\neq" title="Not Equal">≠</button>
+                <button class="latex-btn" data-latex="\le" title="Less or Equal">≤</button>
+                <button class="latex-btn" data-latex="\ge" title="Greater or Equal">≥</button>
             </div>
         </div>
 
