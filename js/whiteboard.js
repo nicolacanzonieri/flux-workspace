@@ -99,7 +99,7 @@ class FluxWhiteboard {
 
     addText(color) {
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newText = { id: Date.now(), type: 'text', content: "Double tap to edit text...", x: center.x - 100, y: center.y - 40, width: 200, height: 80, color, isAutoColor: true, fontSize: 16, hasOverflow: false };
+        const newText = { id: Date.now(), type: 'text', content: "Your text here...", x: center.x - 100, y: center.y - 40, width: 200, height: 80, color, isAutoColor: true, fontSize: 16, hasOverflow: false };
         this.elements.push(newText); this.interaction.selectedElements = [newText]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
