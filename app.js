@@ -369,11 +369,61 @@ class FluxApp {
         this.project.boards.forEach(board => {
             const item = document.createElement('div');
             item.className = `library-item ${board.id === this.state.activeBoardId ? 'active' : ''}`;
+            
+            // Build inner content HTML
             item.innerHTML = `
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>
-                <span>${board.name}</span>
+                <div class="lib-item-info">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>
+                    <span>${board.name}</span>
+                </div>
+                <div class="lib-actions">
+                    <button class="lib-mini-btn rename" title="Rename">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-text-cursor-icon lucide-text-cursor"><path d="M17 22h-1a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h1"/><path d="M7 22h1a4 4 0 0 0 4-4v-1"/><path d="M7 2h1a4 4 0 0 1 4 4v1"/></svg>
+                    </button>
+                    <button class="lib-mini-btn delete danger" title="Delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2-icon lucide-trash-2"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+                    </button>
+                </div>
             `;
-            item.addEventListener('click', () => { this.switchToBoard(board.id); this.dom.libPopup.classList.add('hidden'); });
+
+            // Event Listeners
+            // Switch board (click on name/info)
+            item.querySelector('.lib-item-info').addEventListener('click', () => { 
+                this.switchToBoard(board.id); 
+                this.dom.libPopup.classList.add('hidden'); 
+            });
+
+            // Rename
+            item.querySelector('.rename').addEventListener('click', (e) => {
+                e.stopPropagation(); // prevent switching board
+                const newName = prompt("Rename Board", board.name);
+                if(newName && newName.trim() !== "") {
+                    board.name = newName.trim();
+                    this.renderLibrary();
+                }
+            });
+
+            // Delete Logic Updated
+            item.querySelector('.delete').addEventListener('click', (e) => {
+                e.stopPropagation(); // prevent switching board
+                if(confirm(`Are you sure you want to delete "${board.name}"?`)) {
+                    // Remove the board from array
+                    this.project.boards = this.project.boards.filter(b => b.id !== board.id);
+                    
+                    if (this.project.boards.length === 0) {
+                        // If no boards left, go home
+                        this.returnToHome();
+                    } else if(this.state.activeBoardId === board.id) {
+                        // If we deleted the ACTIVE board, switch to the last available one
+                        const lastBoard = this.project.boards[this.project.boards.length - 1];
+                        this.switchToBoard(lastBoard.id);
+                    } else {
+                        // If we deleted an inactive board, just update list
+                        this.renderLibrary();
+                    }
+                }
+            });
+
             this.dom.libBoardList.appendChild(item);
         });
     }
