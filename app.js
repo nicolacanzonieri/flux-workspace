@@ -463,7 +463,9 @@ class FluxApp {
     }
 
     startNewBoard() {
-        if (this.project.boards.length === 0) this.addNewBoardToProject("Initial Board");
+        if (this.project.boards.length === 0) {
+            this.addNewBoardToProject("Initial Board");
+        }
         this.dom.menu.classList.add('hidden');
         this.dom.canvas.classList.remove('hidden');
         this.dom.toolbar.classList.remove('hidden');
@@ -498,6 +500,6 @@ class FluxApp {
         this.renderLibrary();
     }
 
-    async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of ns) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
+    async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of names) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
 }
 document.addEventListener('DOMContentLoaded', () => window.flux = new FluxApp());
