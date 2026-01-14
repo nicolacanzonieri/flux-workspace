@@ -39,6 +39,7 @@ class FluxApp {
             editorOverlay: document.getElementById('markdown-editor-overlay'),
             mdInput: document.getElementById('md-input'),
             btnCloseEditor: document.getElementById('btn-close-editor'),
+            mdBtns: document.querySelectorAll('.md-btn'), // New MD buttons
 
             btnCloseColor: document.getElementById('btn-close-color'),
             btnCloseStroke: document.getElementById('btn-close-stroke'),
@@ -177,6 +178,14 @@ class FluxApp {
         this.dom.btnEditText.addEventListener('click', () => this.openMarkdownEditor());
         this.dom.btnCloseEditor.addEventListener('click', () => this.saveAndCloseMarkdownEditor());
         
+        // Handle MD Toolbar buttons
+        this.dom.mdBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault(); // prevent focus loss
+                this.handleMarkdownButton(btn.getAttribute('data-md'));
+            });
+        });
+        
         // Double click on canvas to edit text (handled via custom event from whiteboard)
         this.dom.canvas.addEventListener('flux-doubleclick', (e) => {
              const el = e.detail.element;
@@ -257,6 +266,9 @@ class FluxApp {
         // Hide other UI elements to focus on editor (except top nav)
         this.dom.editBar.classList.add('hidden');
         this.dom.toolbar.classList.add('hidden');
+        
+        // Focus textarea
+        setTimeout(() => this.dom.mdInput.focus(), 100);
     }
 
     saveAndCloseMarkdownEditor() {
@@ -276,6 +288,40 @@ class FluxApp {
         this.dom.editorOverlay.classList.add('hidden');
         this.dom.toolbar.classList.remove('hidden');
         this.updateEditBar(); // Restore edit bar
+    }
+
+    handleMarkdownButton(type) {
+        const input = this.dom.mdInput;
+        const start = input.selectionStart;
+        const end = input.selectionEnd;
+        const text = input.value;
+        const selected = text.substring(start, end);
+        
+        let prefix = '', suffix = '';
+        
+        switch(type) {
+            case 'asterisk': prefix = '*'; break;
+            case 'backslash': prefix = '\\'; break;
+            case 'hash': prefix = '#'; break;
+            case 'list': prefix = '- '; break;
+            case 'task': prefix = '- [ ] '; break;
+            case 'code': prefix = '```\n'; suffix = '\n```'; break;
+            case 'math-inline': prefix = '$'; suffix = '$'; break;
+            case 'math-block': prefix = '$$'; suffix = '$$'; break;
+        }
+
+        const replacement = prefix + selected + suffix;
+        input.setRangeText(replacement);
+        
+        // Restore focus and update cursor position
+        input.focus();
+        if (selected.length === 0) {
+            // If no text selected, put cursor inside the delimiters (or after the char)
+            input.setSelectionRange(start + prefix.length, start + prefix.length);
+        } else {
+            // If text selected, highlight the wrapped text
+            input.setSelectionRange(start, start + replacement.length);
+        }
     }
 
     // --- End Editor Logic ---
