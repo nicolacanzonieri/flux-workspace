@@ -57,7 +57,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 
 /* === 4. TOP NAVIGATION BARS === */
 
-/* Right Navigation (Settings, Home) */
+/* Right Navigation (Settings, Home, Save) */
 .top-nav {
     position: absolute; top: calc(var(--safe-top) + 15px); right: calc(var(--safe-right) + 15px);
     z-index: 120; display: flex; align-items: center; justify-content: center;
@@ -73,13 +73,24 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
     flex-shrink: 0; 
 }
 
-/* Home button specific sliding animation */
-.home-btn { 
+/* Collapsible Buttons (Home & Save) - Shared Logic for Animation */
+.home-btn, 
+#btn-save-project { 
     width: 44px; opacity: 1; overflow: hidden;
     transition: width 0.5s var(--ease-out), opacity 0.3s, margin 0.5s var(--ease-out); 
 }
-.home-btn.hidden { width: 0 !important; opacity: 0 !important; margin: 0 !important; padding: 0 !important; pointer-events: none; }
-.home-btn.hidden + .nav-separator { width: 0 !important; margin: 0 !important; opacity: 0 !important; }
+
+/* Hidden state for collapsible buttons */
+.home-btn.hidden,
+#btn-save-project.hidden { 
+    width: 0 !important; opacity: 0 !important; margin: 0 !important; padding: 0 !important; pointer-events: none; border: none;
+}
+
+/* Hide the separator following a hidden button */
+.home-btn.hidden + .nav-separator,
+#btn-save-project.hidden + .nav-separator { 
+    width: 0 !important; margin: 0 !important; opacity: 0 !important; 
+}
 
 /* Left Navigation (Library) */
 .top-left-nav {

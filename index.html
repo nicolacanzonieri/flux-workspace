@@ -19,6 +19,9 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
+    <!-- JSZip for Exporting/Importing Projects -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
     <title>Flux</title>
 </head>
 <body>
@@ -39,6 +42,20 @@
                 </div>
             </button>
             <div class="nav-separator"></div>
+            
+            <!-- SAVE BUTTON (Hidden by default, visible only in project) -->
+            <button id="btn-save-project" class="icon-btn hidden" aria-label="Save Project">
+                <div class="icon-wrapper">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
+                        <path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/>
+                        <path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7"/>
+                        <path d="M7 3v4a1 1 0 0 0 1 1h7"/>
+                    </svg>
+                </div>
+            </button>
+            
+            <div class="nav-separator"></div>
+
             <button id="btn-settings-toggle" class="icon-btn settings-btn" aria-label="Settings">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -108,7 +125,8 @@
                     </button>
                 </div>
             </div>
-            <input type="file" id="file-input" accept=".json,.flux" style="display: none;" />
+            <!-- Modified accept attribute to include .zip -->
+            <input type="file" id="file-input" accept=".json,.flux,.zip" style="display: none;" />
         </div>
 
         <!-- MARKDOWN EDITOR OVERLAY -->
@@ -398,7 +416,7 @@
         <!-- CANVAS -->
         <canvas id="flux-canvas" class="hidden"></canvas>
         
-        <input type="file" id="file-input" accept=".json,.flux" style="display: none;" />
+        <input type="file" id="file-input" accept=".json,.flux,.zip" style="display: none;" />
         <input type="file" id="image-input" accept="image/*" style="display: none;" />
     </main>
 

@@ -93,6 +93,20 @@ class FluxWhiteboard {
         this.render();
     }
 
+    /**
+     * @method getPointerPos
+     * @description Normalizes pointer coordinates relative to the canvas element.
+     */
+    getPointerPos(e) {
+        const rect = this.canvas.getBoundingClientRect();
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+        return {
+            x: clientX - rect.left,
+            y: clientY - rect.top
+        };
+    }
+
     screenToWorld(x, y) { return { x: (x - this.view.offsetX) / this.view.scale, y: (y - this.view.offsetY) / this.view.scale }; }
     worldToScreen(x, y) { return { x: x * this.view.scale + this.view.offsetX, y: y * this.view.scale + this.view.offsetY }; }
 
@@ -220,8 +234,11 @@ class FluxWhiteboard {
     applyZoom(factor, x, y) {
         const newScale = Math.min(Math.max(this.view.scale * factor, this.config.minScale), this.config.maxScale);
         if (newScale === this.view.scale) return;
-        const mouseWorld = this.screenToWorld(x, y); this.view.scale = newScale;
-        this.view.offsetX = x - mouseWorld.x * this.view.scale; this.view.offsetY = y - mouseWorld.y * this.view.scale;
+        const pointer = this.getPointerPos({ clientX: x, clientY: y }); // Use getPointerPos to be consistent
+        const mouseWorld = this.screenToWorld(pointer.x, pointer.y); 
+        this.view.scale = newScale;
+        this.view.offsetX = pointer.x - mouseWorld.x * this.view.scale; 
+        this.view.offsetY = pointer.y - mouseWorld.y * this.view.scale;
     }
 
     handleMouseDown(e) {
@@ -230,9 +247,15 @@ class FluxWhiteboard {
         const tool = window.flux.state.activeTool;
 
         // 1. PANNING (Shift + click, Middle mouse or Pan tool)
+        // Use raw coordinates for panning delta calculations later
+        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
         if (e.shiftKey || e.button === 1 || tool === 'pan') {
-            this.interaction.isPanning = true; this.interaction.lastMouseX = e.clientX;
-            this.interaction.lastMouseY = e.clientY; this.canvas.classList.add('panning');
+            this.interaction.isPanning = true; 
+            this.interaction.lastMouseX = clientX;
+            this.interaction.lastMouseY = clientY; 
+            this.canvas.classList.add('panning');
             this.render(); return;
         }
 
@@ -305,13 +328,11 @@ class FluxWhiteboard {
         if (this.interaction.isPanning) {
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-            
             this.view.offsetX += clientX - this.interaction.lastMouseX; 
             this.view.offsetY += clientY - this.interaction.lastMouseY;
             this.interaction.lastMouseX = clientX; 
             this.interaction.lastMouseY = clientY; 
-            this.render(); 
-            return;
+            this.render(); return;
         }
         if (this.interaction.isDrawingPath) { this.interaction.draggedElement.points.push({ x: mouse.x, y: mouse.y }); this.render(); return; }
         if (this.interaction.isDraggingHandle) { this.resizeElement(this.interaction.draggedElement, this.interaction.draggedHandle, mouse); this.render(); return; }
@@ -426,12 +447,11 @@ class FluxWhiteboard {
 
     handleTouchStart(e) {
         if (e.touches.length === 2) {
-            e.preventDefault(); 
-            this.interaction.isPanning = true;
+            e.preventDefault(); this.interaction.isPanning = true;
             this.interaction.initialTouchDistance = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
             this.interaction.initialTouchCenter = { x: (e.touches[0].pageX + e.touches[1].pageX)/2, y: (e.touches[0].pageY + e.touches[1].pageY)/2 };
         } else if (e.touches.length === 1) {
-            this.handleMouseDown(e);
+            this.handleMouseDown(e); // Pass original event, getPointerPos handles it
         }
     }
 
@@ -441,31 +461,23 @@ class FluxWhiteboard {
             const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
             const center = { x: (e.touches[0].pageX + e.touches[1].pageX)/2, y: (e.touches[0].pageY + e.touches[1].pageY)/2 };
             this.applyZoom(dist / this.interaction.initialTouchDistance, center.x, center.y);
-            this.view.offsetX += center.x - this.interaction.initialTouchCenter.x; 
-            this.view.offsetY += center.y - this.interaction.initialTouchCenter.y;
-            this.interaction.initialTouchDistance = dist; 
-            this.interaction.initialTouchCenter = center; 
-            this.render();
+            this.view.offsetX += center.x - this.interaction.initialTouchCenter.x; this.view.offsetY += center.y - this.interaction.initialTouchCenter.y;
+            this.interaction.initialTouchDistance = dist; this.interaction.initialTouchCenter = center; this.render();
         } else if (e.touches.length === 1) {
-            e.preventDefault();
-            this.handleMouseMove(e);
+            e.preventDefault(); // Prevents scrolling/refresh behavior
+            this.handleMouseMove(e); // Pass original event
         }
     }
 
     handleTouchEnd() { this.handleMouseUp(); }
 
-    getPointerPos(e) {
-        const rect = this.canvas.getBoundingClientRect();
-        const clientX = e.touches ? e.touches[0].clientX : e.clientX;
-        const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-        
-        return {
-            x: clientX - rect.left,
-            y: clientY - rect.top
-        };
+    resize() { 
+        this.canvas.width = window.innerWidth * devicePixelRatio; 
+        this.canvas.height = window.innerHeight * devicePixelRatio; 
+        this.ctx.scale(devicePixelRatio, devicePixelRatio); 
+        this.ctx.imageSmoothingEnabled = true; // Optimization
+        this.render(); 
     }
-
-    resize() { this.canvas.width = window.innerWidth * devicePixelRatio; this.canvas.height = window.innerHeight * devicePixelRatio; this.ctx.scale(devicePixelRatio, devicePixelRatio); this.render(); }
 
     render() {
         this.ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--bg-color').trim();

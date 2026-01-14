@@ -18,6 +18,7 @@ class FluxApp {
             btnOpen: document.getElementById('btn-open-file'),
             btnSettings: document.getElementById('btn-settings-toggle'),
             btnHome: document.getElementById('btn-home'),
+            btnSave: document.getElementById('btn-save-project'), // Reference to the Save button
             
             // Library Components
             libNav: document.querySelector('.top-left-nav'),
@@ -54,7 +55,7 @@ class FluxApp {
             themeToggle: document.getElementById('theme-toggle'),
             gridToggle: document.getElementById('grid-toggle'),
             fileInput: document.getElementById('file-input'),
-            imageInput: document.getElementById('image-input'), // New image input
+            imageInput: document.getElementById('image-input'),
 
             btnColorPicker: document.getElementById('btn-color-picker'),
             btnFillPicker: document.getElementById('btn-fill-picker'),
@@ -154,7 +155,19 @@ class FluxApp {
 
     bindEvents() {
         this.dom.btnNew.addEventListener('click', () => this.startNewBoard());
-        this.dom.btnHome.addEventListener('click', () => this.returnToHome());
+        
+        // Return Home with confirmation
+        this.dom.btnHome.addEventListener('click', () => {
+            if(confirm("Are you sure you want to return to Home? Unsaved progress will be lost if you haven't downloaded the project.")) {
+                this.returnToHome();
+            }
+        });
+
+        this.dom.btnSave.addEventListener('click', () => this.downloadProjectZip());
+
+        // File Loading
+        this.dom.btnOpen.addEventListener('click', () => this.dom.fileInput.click());
+        this.dom.fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
 
         this.dom.btnLibToggle.addEventListener('click', (e) => { e.stopPropagation(); this.dom.libPopup.classList.toggle('hidden'); });
         window.addEventListener('click', () => this.dom.libPopup.classList.add('hidden'));
@@ -174,7 +187,7 @@ class FluxApp {
             else if(t === 'shape') this.dom.shapesModal.classList.remove('hidden');
             else if(t === 'text') this.createTextAction();
             else if(t === 'formula') this.createFormulaAction();
-            else if(t === 'image') this.createImageAction(); // Trigger image upload
+            else if(t === 'image') this.createImageAction();
             else this.selectTool(t);
         }));
 
@@ -263,6 +276,108 @@ class FluxApp {
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
 
+    // Handles ZIP or JSON import
+    handleFileUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Check if file is ZIP
+        if (file.name.endsWith('.zip')) {
+             if (window.JSZip) {
+                 const zip = new JSZip();
+                 zip.loadAsync(file).then(contents => {
+                     // Look for a .json file in the root
+                     const jsonFileName = Object.keys(contents.files).find(name => name.endsWith('.json'));
+                     if (jsonFileName) {
+                         return zip.file(jsonFileName).async("string");
+                     } else {
+                         throw new Error("No JSON project file found in the ZIP archive.");
+                     }
+                 }).then(jsonContent => {
+                     this.loadProjectFromJSON(jsonContent);
+                 }).catch(err => {
+                     console.error(err);
+                     alert("Error reading ZIP file: " + err.message);
+                 });
+             } else {
+                 alert("JSZip library not loaded.");
+             }
+        } else {
+            // Assume standard JSON or .flux
+            const reader = new FileReader();
+            reader.onload = (event) => this.loadProjectFromJSON(event.target.result);
+            reader.readAsText(file);
+        }
+        e.target.value = ""; // Reset input
+    }
+
+    loadProjectFromJSON(jsonString) {
+        try {
+            const data = JSON.parse(jsonString);
+            if (data.boards && Array.isArray(data.boards)) {
+                this.project = data;
+                // Load first board by default or active one if specified (not implemented in save format yet, defaulting to first)
+                if (this.project.boards.length > 0) {
+                    this.loadProjectAndStart();
+                }
+            } else {
+                alert("Invalid project file format.");
+            }
+        } catch (e) {
+            alert("Error parsing project file.");
+        }
+    }
+
+    loadProjectAndStart() {
+        this.dom.menu.classList.add('hidden');
+        this.dom.canvas.classList.remove('hidden');
+        this.dom.toolbar.classList.remove('hidden');
+        this.dom.btnHome.classList.remove('hidden');
+        this.dom.btnSave.classList.remove('hidden'); // Show Save Button
+        this.dom.libNav.classList.remove('hidden');
+        
+        this.state.boardActive = true;
+        this.renderLibrary();
+        
+        // Switch to the first board
+        if (this.project.boards.length > 0) {
+            this.switchToBoard(this.project.boards[0].id);
+        }
+        if(this.whiteboard) this.whiteboard.resize();
+    }
+
+    async downloadProjectZip() {
+        this.saveCurrentBoardState();
+
+        if (!this.project || this.project.boards.length === 0) {
+            alert("No project data to save.");
+            return;
+        }
+
+        try {
+            const zip = new JSZip();
+            const projectData = JSON.stringify(this.project, null, 2);
+            const safeName = (this.project.name || "flux-project").replace(/[^a-z0-9]/gi, '_').toLowerCase();
+            
+            zip.file(`${safeName}.json`, projectData);
+            zip.file("readme.txt", "Generated by Flux Workspace.\nImport this .json file back into Flux to restore your work.");
+
+            const content = await zip.generateAsync({ type: "blob" });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `${safeName}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+
+        } catch (error) {
+            console.error("Error creating zip:", error);
+            alert("An error occurred while zipping the project.");
+        }
+    }
+
     createImageAction() {
         this.dom.imageInput.click();
     }
@@ -279,10 +394,6 @@ class FluxApp {
         e.target.value = ""; // Reset for next selection
     }
 
-    /**
-     * @method routeToEditor
-     * @description Determines if the element is a LaTeX formula or Markdown text and opens the correct editor.
-     */
     routeToEditor(el) {
         if (!el || el.type !== 'text') return;
         const content = el.content.trim();
@@ -474,8 +585,11 @@ class FluxApp {
 
     startNewBoard() {
         if (this.project.boards.length === 0) this.addNewBoardToProject("Initial Board");
-        this.dom.menu.classList.add('hidden'); this.dom.canvas.classList.remove('hidden');
-        this.dom.toolbar.classList.remove('hidden'); this.dom.btnHome.classList.remove('hidden');
+        this.dom.menu.classList.add('hidden'); 
+        this.dom.canvas.classList.remove('hidden');
+        this.dom.toolbar.classList.remove('hidden'); 
+        this.dom.btnHome.classList.remove('hidden');
+        this.dom.btnSave.classList.remove('hidden'); // Show Save Button
         this.dom.libNav.classList.remove('hidden');
         if(this.whiteboard) this.whiteboard.resize();
         this.state.boardActive = true; this.renderLibrary();
@@ -495,10 +609,15 @@ class FluxApp {
     returnToHome() {
         this.project = { name: "Untitled Project", boards: [] };
         this.state.activeBoardId = null;
-        this.dom.canvas.classList.add('hidden'); this.dom.toolbar.classList.add('hidden'); 
-        this.dom.editBar.classList.add('hidden'); this.dom.btnHome.classList.add('hidden'); 
-        this.dom.libNav.classList.add('hidden'); this.state.boardActive = false; 
-        this.dom.menu.classList.remove('hidden'); this.renderLibrary();
+        this.dom.canvas.classList.add('hidden'); 
+        this.dom.toolbar.classList.add('hidden'); 
+        this.dom.editBar.classList.add('hidden'); 
+        this.dom.btnHome.classList.add('hidden');
+        this.dom.btnSave.classList.add('hidden'); // Hide Save Button
+        this.dom.libNav.classList.add('hidden'); 
+        this.state.boardActive = false; 
+        this.dom.menu.classList.remove('hidden'); 
+        this.renderLibrary();
     }
 
     async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of names) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
