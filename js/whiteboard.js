@@ -453,6 +453,9 @@ class FluxWhiteboard {
         const computedStyle = getComputedStyle(document.body);
         const fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
         
+        // Inject the full KaTeX CSS fetched in app.js + overrides
+        const katexCSS = (window.flux && window.flux.katexStyles) ? window.flux.katexStyles : "";
+
         const svgString = `
         <svg xmlns="http://www.w3.org/2000/svg" width="${el.width}" height="${el.height}">
             <foreignObject width="100%" height="100%">
@@ -466,6 +469,9 @@ class FluxWhiteboard {
                     word-wrap: break-word;
                 ">
                     <style>
+                        /* Inject KaTeX CSS from memory */
+                        ${katexCSS}
+                        
                         /* Minimal CSS reset for inside SVG */
                         p { margin: 0 0 0.5em 0; }
                         h1, h2, h3 { margin: 0 0 0.5em 0; font-weight: 600; line-height: 1.2; }
@@ -473,7 +479,9 @@ class FluxWhiteboard {
                         ul, ol { margin: 0 0 0.5em 0; padding-left: 1.2em; }
                         blockquote { border-left: 3px solid ${color}; padding-left: 10px; opacity: 0.8; margin: 0; }
                         code { background: rgba(127,127,127,0.2); padding: 2px 4px; border-radius: 3px; font-family: monospace; }
-                        .katex { font-size: 1em; } /* Basic sizing for Math */
+                        
+                        /* Ensure we strictly hide the accessible MathML part to avoid duplication */
+                        .katex-mathml { display: none !important; }
                     </style>
                     ${htmlContent}
                 </div>

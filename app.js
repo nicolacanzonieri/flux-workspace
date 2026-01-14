@@ -85,14 +85,35 @@ class FluxApp {
             name: "Untitled Project",
             boards: []
         };
+        
+        // Storage for external CSS content (KaTeX) to inject into SVGs
+        this.katexStyles = "";
+        
         this.whiteboard = null;
         this.init();
     }
 
     async init() {
         console.log("Flux: Initializing Workspace...");
+        
+        // Pre-fetch KaTeX CSS for rendering
+        this.loadExternalStyles();
+
         if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
         this.loadSettings(); this.revealApplication(); this.bindEvents();
+    }
+
+    async loadExternalStyles() {
+        try {
+            // Fetch the CSS text content to inject into foreignObject later
+            const response = await fetch('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');
+            if (response.ok) {
+                this.katexStyles = await response.text();
+                console.log("Flux: KaTeX styles loaded for rendering.");
+            }
+        } catch (e) {
+            console.warn("Flux: Failed to load KaTeX styles (offline?). Formulas may look unstyled.", e);
+        }
     }
 
     async revealApplication() {
