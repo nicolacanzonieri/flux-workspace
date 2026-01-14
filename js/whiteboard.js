@@ -234,7 +234,7 @@ class FluxWhiteboard {
     applyZoom(factor, x, y) {
         const newScale = Math.min(Math.max(this.view.scale * factor, this.config.minScale), this.config.maxScale);
         if (newScale === this.view.scale) return;
-        const pointer = this.getPointerPos({ clientX: x, clientY: y }); // Use getPointerPos to be consistent
+        const pointer = this.getPointerPos({ clientX: x, clientY: y });
         const mouseWorld = this.screenToWorld(pointer.x, pointer.y); 
         this.view.scale = newScale;
         this.view.offsetX = pointer.x - mouseWorld.x * this.view.scale; 
@@ -246,8 +246,7 @@ class FluxWhiteboard {
         const mouse = this.screenToWorld(pos.x, pos.y);
         const tool = window.flux.state.activeTool;
 
-        // 1. PANNING (Shift + click, Middle mouse or Pan tool)
-        // Use raw coordinates for panning delta calculations later
+        // 1. PANNING
         const clientX = e.touches ? e.touches[0].clientX : e.clientX;
         const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
@@ -291,7 +290,6 @@ class FluxWhiteboard {
                     this.interaction.isDraggingHandle = true; 
                     this.interaction.draggedElement = el;
                     this.interaction.draggedHandle = i; 
-                    // Store initial data for proportional scaling
                     this.interaction.initialWidth = el.width || 0;
                     this.interaction.initialHeight = el.height || 0;
                     this.interaction.aspectRatio = (el.width / el.height) || 1;
@@ -391,15 +389,22 @@ class FluxWhiteboard {
             }
 
             // 2. Enforce Proportional scaling for corners
-            if (isCorner) {
-                // We base the proportional size on the largest change to feel natural
+            // MODIFICA: Il testo non deve mantenere l'aspect ratio (per permettere reflow)
+            // Le immagini e le shape mantengono il comportamento standard
+            if (isCorner && el.type !== 'text') {
                 if (el.width / ratio > el.height) el.height = el.width / ratio;
                 else el.width = el.height * ratio;
             }
 
             // 3. Prevent going below minSize
-            if (el.width < minSize) { el.width = minSize; el.height = el.width / ratio; }
-            if (el.height < minSize) { el.height = minSize; el.width = el.height * ratio; }
+            if (el.width < minSize) { 
+                el.width = minSize; 
+                if (isCorner && el.type !== 'text') el.height = el.width / ratio; 
+            }
+            if (el.height < minSize) { 
+                el.height = minSize; 
+                if (isCorner && el.type !== 'text') el.width = el.height * ratio; 
+            }
 
             // 4. Reposition based on anchor
             if (handleIdx === 0) { el.x = right - el.width; el.y = bottom - el.height; }
@@ -408,11 +413,7 @@ class FluxWhiteboard {
             else if (handleIdx === 6) { el.x = right - el.width; }
             else if (handleIdx === 7) { el.x = right - el.width; }
 
-            // 5. Special logic for text: scale fontSize
-            if (el.type === 'text') {
-                const scaleFactor = el.width / this.interaction.initialWidth;
-                el.fontSize = Math.max(4, this.interaction.initialFontSize * scaleFactor);
-            }
+            // MODIFICA: Rimosso blocco che aggiornava el.fontSize
         }
     }
 
