@@ -63,6 +63,7 @@ class FluxWhiteboard {
         const cleanElements = this.elements.map(el => {
             const copy = { ...el };
             if (copy.renderedImage) delete copy.renderedImage;
+            if (copy.imgObj) delete copy.imgObj; // Transient image object
             return copy;
         });
 
@@ -99,14 +100,10 @@ class FluxWhiteboard {
      */
     saveHistory() {
         const snapshot = JSON.stringify(this.elements);
-        if (this.history.undoStack.length > 0 && this.history.undoStack[this.history.undoStack.length - 1] === snapshot) {
-            return;
-        }
+        if (this.history.undoStack.length > 0 && this.history.undoStack[this.history.undoStack.length - 1] === snapshot) return;
         this.history.undoStack.push(snapshot);
         this.history.redoStack = []; 
-        if (this.history.undoStack.length > this.history.maxDepth) {
-            this.history.undoStack.shift();
-        }
+        if (this.history.undoStack.length > this.history.maxDepth) this.history.undoStack.shift();
         if(window.flux) window.flux.syncHistoryUI();
     }
 
@@ -117,10 +114,7 @@ class FluxWhiteboard {
         this.elements = JSON.parse(previousState);
         this.interaction.selectedElements = [];
         this.render();
-        if(window.flux) {
-            window.flux.syncHistoryUI();
-            window.flux.updateEditBar();
-        }
+        if(window.flux) { window.flux.syncHistoryUI(); window.flux.updateEditBar(); }
     }
 
     redo() {
@@ -130,10 +124,7 @@ class FluxWhiteboard {
         this.elements = JSON.parse(nextState);
         this.interaction.selectedElements = [];
         this.render();
-        if(window.flux) {
-            window.flux.syncHistoryUI();
-            window.flux.updateEditBar();
-        }
+        if(window.flux) { window.flux.syncHistoryUI(); window.flux.updateEditBar(); }
     }
 
     addLine(color) {
@@ -169,6 +160,28 @@ class FluxWhiteboard {
         this.elements.push(newFormula); this.interaction.selectedElements = [newFormula]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
+    addImage(src) {
+        this.saveHistory();
+        const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+        const newImg = { id: Date.now(), type: 'image', src, x: center.x - 150, y: center.y - 150, width: 300, height: 300, imgObj: null };
+        
+        // Pre-load image to get aspect ratio
+        const temp = new Image();
+        temp.onload = () => {
+            const ratio = temp.width / temp.height;
+            if (ratio > 1) newImg.height = newImg.width / ratio;
+            else newImg.width = newImg.height * ratio;
+            newImg.imgObj = temp;
+            this.render();
+        };
+        temp.src = src;
+
+        this.elements.push(newImg);
+        this.interaction.selectedElements = [newImg];
+        this.render();
+        if(window.flux) window.flux.updateEditBar();
+    }
+
     duplicateSelected() {
         this.saveHistory();
         const newSelected = [];
@@ -177,8 +190,8 @@ class FluxWhiteboard {
             const offset = 20 / this.view.scale;
             if (clone.type === 'line') { clone.p1.x += offset; clone.p1.y += offset; clone.p2.x += offset; clone.p2.y += offset; }
             else if (clone.type === 'pen') { clone.points.forEach(p => { p.x += offset; p.y += offset; }); }
-            else if (clone.type === 'shape') { clone.x += offset; clone.y += offset; }
-            else if (clone.type === 'text') { clone.x += offset; clone.y += offset; clone.renderedImage = null; }
+            else if (clone.type === 'shape' || clone.type === 'text' || clone.type === 'image') { clone.x += offset; clone.y += offset; }
+            if (clone.type === 'text') clone.renderedImage = null;
             this.elements.push(clone); newSelected.push(clone);
         });
         this.interaction.selectedElements = newSelected; this.render();
@@ -192,10 +205,7 @@ class FluxWhiteboard {
 
     updateThemeColors(isLightMode) {
         const newColor = isLightMode ? '#1a1a1d' : '#ffffff';
-        this.elements.forEach(el => { 
-            if (el.isAutoColor) el.color = newColor; 
-            if (el.isAutoFill) el.fillColor = newColor; 
-        });
+        this.elements.forEach(el => { if (el.isAutoColor) el.color = newColor; if (el.isAutoFill) el.fillColor = newColor; });
         this.render();
     }
 
@@ -219,19 +229,16 @@ class FluxWhiteboard {
 
         // 1. PANNING (Shift + click, Middle mouse or Pan tool)
         if (e.shiftKey || e.button === 1 || tool === 'pan') {
-            this.interaction.isPanning = true; 
-            this.interaction.lastMouseX = e.clientX;
-            this.interaction.lastMouseY = e.clientY; 
-            this.canvas.classList.add('panning');
-            this.render(); 
-            return;
+            this.interaction.isPanning = true; this.interaction.lastMouseX = e.clientX;
+            this.interaction.lastMouseY = e.clientY; this.canvas.classList.add('panning');
+            this.render(); return;
         }
 
         const now = Date.now();
         if (now - this.interaction.lastClickTime < 300) {
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
-                if (this.isPointInElement(mouse, el)) {
+                if (this.isPointInElement(mouse, el) && el.type === 'text') {
                     this.canvas.dispatchEvent(new CustomEvent('flux-doubleclick', { detail: { element: el } }));
                     return;
                 }
@@ -246,8 +253,7 @@ class FluxWhiteboard {
             const isLight = document.body.classList.contains('light-mode');
             this.startPath(isLight ? '#1a1a1d' : '#ffffff');
             this.interaction.draggedElement.points.push({ x: mouse.x, y: mouse.y });
-            this.render(); 
-            return;
+            this.render(); return;
         }
 
         // 4. DRAG HANDLE (Resizing)
@@ -257,10 +263,8 @@ class FluxWhiteboard {
                 const h = handles[i];
                 if (Math.hypot(mouse.x - h.x, mouse.y - h.y) * this.view.scale < this.config.handleHitThreshold) {
                     this.saveHistory();
-                    this.interaction.isDraggingHandle = true; 
-                    this.interaction.draggedElement = el;
-                    this.interaction.draggedHandle = i; 
-                    return;
+                    this.interaction.isDraggingHandle = true; this.interaction.draggedElement = el;
+                    this.interaction.draggedHandle = i; return;
                 }
             }
         }
@@ -305,7 +309,7 @@ class FluxWhiteboard {
             this.interaction.selectedElements.forEach(el => {
                 if (el.type === 'line') { el.p1.x += dx; el.p1.y += dy; el.p2.x += dx; el.p2.y += dy; }
                 else if (el.type === 'pen') { el.points.forEach(p => { p.x += dx; p.y += dy; }); }
-                else if (el.type === 'shape' || el.type === 'text') { el.x += dx; el.y += dy; }
+                else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') { el.x += dx; el.y += dy; }
             });
             this.interaction.dragLastWorldPos = mouse; this.render(); return;
         }
@@ -324,7 +328,7 @@ class FluxWhiteboard {
 
     getElementHandles(el) {
         if (el.type === 'line') return [el.p1, el.p2];
-        if (el.type === 'shape' || el.type === 'text') {
+        if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
             const {x, y, width: w, height: h} = el;
             return [{x, y}, {x: x+w/2, y}, {x: x+w, y}, {x: x+w, y: y+h/2}, {x: x+w, y: y+h}, {x: x+w/2, y: y+h}, {x, y: y+h}, {x, y: y+h/2}];
         }
@@ -334,7 +338,7 @@ class FluxWhiteboard {
     resizeElement(el, handleIdx, mouse) {
         if (el.renderedImage) el.renderedImage = null; 
         if (el.type === 'line') { const key = handleIdx === 0 ? 'p1' : 'p2'; el[key].x = mouse.x; el[key].y = mouse.y; return; }
-        if (el.type === 'shape' || el.type === 'text') {
+        if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
             const minSize = 20, right = el.x + el.width, bottom = el.y + el.height;
             switch(handleIdx) {
                 case 0: el.width = right - mouse.x; el.height = bottom - mouse.y; el.x = mouse.x; el.y = mouse.y; break;
@@ -356,7 +360,7 @@ class FluxWhiteboard {
             if (el.type === 'line') return this.getDistPointToSegment(p, el.p1, el.p2) * this.view.scale < effectiveHitThreshold;
             return el.points.some((pt, idx) => idx < el.points.length - 1 && this.getDistPointToSegment(p, pt, el.points[idx+1]) * this.view.scale < effectiveHitThreshold);
         }
-        if (el.type === 'shape' || el.type === 'text') return p.x >= el.x && p.x <= el.x + el.width && p.y >= el.y && p.y <= el.y + el.height;
+        if (el.type === 'shape' || el.type === 'text' || el.type === 'image') return p.x >= el.x && p.x <= el.x + el.width && p.y >= el.y && p.y <= el.y + el.height;
         return false;
     }
 
@@ -367,7 +371,7 @@ class FluxWhiteboard {
         this.interaction.selectedElements = this.elements.filter(el => {
             if (el.type === 'line') return el.p1.x >= x1 && el.p1.x <= x2 && el.p1.y >= y1 && el.p1.y <= y2;
             if (el.type === 'pen') return el.points.some(p => p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2);
-            if (el.type === 'shape' || el.type === 'text') return el.x >= x1 && el.x + el.width <= x2 && el.y >= y1 && el.y + el.height <= y2;
+            if (el.type === 'shape' || el.type === 'text' || el.type === 'image') return el.x >= x1 && el.x + el.width <= x2 && el.y >= y1 && el.y + el.height <= y2;
             return false;
         });
     }
@@ -424,12 +428,14 @@ class FluxWhiteboard {
         this.elements.forEach(el => {
             this.ctx.save();
             const isSelected = this.interaction.selectedElements.includes(el);
-            this.ctx.strokeStyle = el.color;
-            this.ctx.lineWidth = (el.strokeWidth || el.width || 3) * this.view.scale;
-            this.ctx.lineCap = 'round'; this.ctx.lineJoin = 'round';
+            
             if (el.type === 'line' || el.type === 'pen') {
+                this.ctx.strokeStyle = el.color;
+                this.ctx.lineWidth = (el.strokeWidth || el.width || 3) * this.view.scale;
+                this.ctx.lineCap = 'round'; this.ctx.lineJoin = 'round';
                 if (el.dashStyle === 'dashed') this.ctx.setLineDash([15 * this.view.scale, 10 * this.view.scale]);
                 else if (el.dashStyle === 'dotted') this.ctx.setLineDash([2 * this.view.scale, 8 * this.view.scale]);
+                
                 if (el.type === 'line') {
                     const sP1 = this.worldToScreen(el.p1.x, el.p1.y), sP2 = this.worldToScreen(el.p2.x, el.p2.y);
                     const ang = Math.atan2(sP2.y-sP1.y, sP2.x-sP1.x), hL = (el.width*4+6)*this.view.scale;
@@ -446,12 +452,18 @@ class FluxWhiteboard {
                     if (isSelected) { this.ctx.globalAlpha = 0.3; this.ctx.lineWidth += 10 * this.view.scale; this.ctx.stroke(); }
                 }
             } else if (el.type === 'shape') {
+                this.ctx.strokeStyle = el.color;
+                this.ctx.lineWidth = (el.strokeWidth || 3) * this.view.scale;
                 const sP = this.worldToScreen(el.x, el.y), sW = el.width * this.view.scale, sH = el.height * this.view.scale;
                 this.ctx.beginPath(); this.drawShapePath(el.shapeType, sP.x, sP.y, sW, sH);
                 if (el.fillColor !== 'transparent') { this.ctx.fillStyle = el.fillColor; this.ctx.fill(); }
                 if (el.color !== 'transparent') this.ctx.stroke();
                 if (isSelected) this.getElementHandles(el).forEach(h => { const sh = this.worldToScreen(h.x, h.y); this.drawHandle(sh.x, sh.y, el.color !== 'transparent' ? el.color : '#888'); });
-            } else if (el.type === 'text') this.drawTextElement(el, isSelected);
+            } else if (el.type === 'text') {
+                this.drawTextElement(el, isSelected);
+            } else if (el.type === 'image') {
+                this.drawImageElement(el, isSelected);
+            }
             this.ctx.restore();
         });
     }
@@ -460,6 +472,33 @@ class FluxWhiteboard {
      * @method drawTextElement
      * @description Renders Markdown/LaTeX content via SVG ForeignObject logic.
      */
+    drawImageElement(el, isSelected) {
+        const sPos = this.worldToScreen(el.x, el.y);
+        const sW = el.width * this.view.scale;
+        const sH = el.height * this.view.scale;
+
+        if (el.imgObj) {
+            this.ctx.drawImage(el.imgObj, sPos.x, sPos.y, sW, sH);
+        } else {
+            // Lazy load the image object if missing (e.g. after loading from JSON)
+            const img = new Image();
+            img.onload = () => { el.imgObj = img; this.render(); };
+            img.src = el.src;
+        }
+
+        if (isSelected) {
+            this.ctx.lineWidth = 1;
+            this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color');
+            this.ctx.setLineDash([5, 5]);
+            this.ctx.strokeRect(sPos.x, sPos.y, sW, sH);
+            this.ctx.setLineDash([]);
+            this.getElementHandles(el).forEach(h => {
+                const sh = this.worldToScreen(h.x, h.y);
+                this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color'));
+            });
+        }
+    }
+
     drawTextElement(el, isSelected) {
         const sPos = this.worldToScreen(el.x, el.y);
         const sW = el.width * this.view.scale;
@@ -477,18 +516,10 @@ class FluxWhiteboard {
                 this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color')); 
             });
         }
-
-        // Render content
         if (el.renderedImage) {
-            // Draw cached image
             this.ctx.drawImage(el.renderedImage, sPos.x, sPos.y, sW, sH);
         } else {
-            // Cache miss, trigger async render
             this.renderMarkdownToImage(el);
-            // Draw placeholder or raw text in meantime? 
-            // Better to leave empty for a frame than draw wrong text, 
-            // but let's draw a loading indicator or simple text if needed.
-            // For now, let's just wait for the next frame render callback.
         }
     }
 
@@ -497,26 +528,16 @@ class FluxWhiteboard {
      * @description Converts Markdown+LaTeX to an SVG Image object and caches it on the element.
      */
     renderMarkdownToImage(el) {
-        // Prevent multiple concurrent renders for the same element state
         if (el.isRendering) return;
         el.isRendering = true;
-
-        // Use Marked for Markdown parsing
         let htmlContent = "";
-        if (window.marked) {
-            htmlContent = window.marked.parse(el.content);
-        } else {
-            htmlContent = `<p>${el.content}</p>`; // Fallback
-        }
+        if (window.marked) htmlContent = window.marked.parse(el.content);
+        else htmlContent = `<p>${el.content}</p>`;
 
-        // Create a temporary container to render LaTeX strings using KaTeX logic (simplified string replace)
-        // Note: Full KaTeX integration usually requires DOM, but here we do string manip or use renderToString
         if (window.katex) {
-            // Replace $$...$$ block math
             htmlContent = htmlContent.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
                 try { return window.katex.renderToString(tex, { displayMode: true, throwOnError: false }); } catch(e){ return match; }
             });
-            // Replace $...$ inline math
             htmlContent = htmlContent.replace(/\$([^\$\n]+?)\$/g, (match, tex) => {
                 try { return window.katex.renderToString(tex, { displayMode: false, throwOnError: false }); } catch(e){ return match; }
             });
@@ -553,18 +574,13 @@ class FluxWhiteboard {
                     word-wrap: break-word;
                 ">
                     <style>
-                        /* Inject KaTeX CSS from memory */
                         ${katexCSS}
-                        
-                        /* Minimal CSS reset for inside SVG */
                         p { margin: 0 0 0.5em 0; }
                         h1, h2, h3 { margin: 0 0 0.5em 0; font-weight: 600; line-height: 1.2; }
                         h1 { font-size: 1.5em; } h2 { font-size: 1.3em; } h3 { font-size: 1.1em; }
                         ul, ol { margin: 0 0 0.5em 0; padding-left: 1.2em; }
                         blockquote { border-left: 3px solid ${color}; padding-left: 10px; opacity: 0.8; margin: 0; }
                         code { background: rgba(127,127,127,0.2); padding: 2px 4px; border-radius: 3px; font-family: monospace; }
-                        
-                        /* Ensure we strictly hide the accessible MathML part to avoid duplication */
                         .katex-mathml { display: none !important; }
                     </style>
                     ${htmlContent}
@@ -575,19 +591,13 @@ class FluxWhiteboard {
         const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
         const url = URL.createObjectURL(blob);
         const img = new Image();
-        
         img.onload = () => {
             el.renderedImage = img;
             el.isRendering = false;
             URL.revokeObjectURL(url);
-            this.render(); // Re-render canvas with new image
+            this.render();
         };
-        
-        img.onerror = () => {
-            el.isRendering = false;
-            console.error("Failed to render text SVG");
-        };
-
+        img.onerror = () => { el.isRendering = false; };
         img.src = url;
     }
 

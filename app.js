@@ -54,6 +54,7 @@ class FluxApp {
             themeToggle: document.getElementById('theme-toggle'),
             gridToggle: document.getElementById('grid-toggle'),
             fileInput: document.getElementById('file-input'),
+            imageInput: document.getElementById('image-input'), // New image input
 
             btnColorPicker: document.getElementById('btn-color-picker'),
             btnFillPicker: document.getElementById('btn-fill-picker'),
@@ -76,7 +77,9 @@ class FluxApp {
             styleBtns: document.querySelectorAll('[data-style]'),
             arrowBtns: document.querySelectorAll('[data-arrow]'),
             btnDuplicate: document.getElementById('btn-duplicate'),
-            btnDelete: document.getElementById('btn-delete')
+            btnDelete: document.getElementById('btn-delete'),
+            btnUndo: document.getElementById('btn-undo'),
+            btnRedo: document.getElementById('btn-redo')
         };
         
         this.state = { 
@@ -102,7 +105,6 @@ class FluxApp {
     }
 
     async init() {
-        console.log("Flux: Initializing Workspace...");
         this.loadExternalStyles();
         if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
         this.loadSettings(); this.revealApplication(); this.bindEvents();
@@ -157,7 +159,7 @@ class FluxApp {
         this.dom.btnLibToggle.addEventListener('click', (e) => { e.stopPropagation(); this.dom.libPopup.classList.toggle('hidden'); });
         window.addEventListener('click', () => this.dom.libPopup.classList.add('hidden'));
         this.dom.libPopup.addEventListener('click', (e) => e.stopPropagation());
-
+        
         this.dom.btnLibNewBoard.addEventListener('click', () => {
             this.dom.libPopup.classList.add('hidden');
             this.addNewBoardToProject();
@@ -172,8 +174,11 @@ class FluxApp {
             else if(t === 'shape') this.dom.shapesModal.classList.remove('hidden');
             else if(t === 'text') this.createTextAction();
             else if(t === 'formula') this.createFormulaAction();
+            else if(t === 'image') this.createImageAction(); // Trigger image upload
             else this.selectTool(t);
         }));
+
+        this.dom.imageInput.addEventListener('change', (e) => this.handleImageUpload(e));
 
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
         this.dom.btnColorPicker.addEventListener('click', () => { this.state.pickingMode = 'stroke'; document.getElementById('color-modal-title').textContent = 'Color'; this.dom.colorModal.classList.remove('hidden'); });
@@ -188,20 +193,10 @@ class FluxApp {
         });
 
         this.dom.btnCloseEditor.addEventListener('click', () => this.saveAndCloseMarkdownEditor());
-        this.dom.mdBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.handleMarkdownButton(btn.getAttribute('data-md'));
-            });
-        });
+        this.dom.mdBtns.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); this.handleMarkdownButton(btn.getAttribute('data-md')); }));
 
         this.dom.btnCloseFormula.addEventListener('click', () => this.saveAndCloseFormulaEditor());
-        this.dom.latexBtns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-                e.preventDefault();
-                this.handleLatexButton(btn.getAttribute('data-latex'));
-            });
-        });
+        this.dom.latexBtns.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); this.handleLatexButton(btn.getAttribute('data-latex')); }));
         
         this.dom.canvas.addEventListener('flux-doubleclick', (e) => {
              const el = e.detail.element;
@@ -237,7 +232,7 @@ class FluxApp {
                 }
                 if (el.type === 'text') el.renderedImage = null;
             });
-            this.dom.colorModal.classList.add('hidden'); this.updateEditBar();
+            this.dom.colorModal.classList.add('hidden');
         }));
 
         const handleWidth = v => { const n = Math.min(Math.max(parseInt(v)||1, 1), 50); this.updateSelectedProperty(el => { if(el.type==='shape') el.strokeWidth=n; else el.width=n; }); this.syncStrokeUI(n); };
@@ -268,6 +263,22 @@ class FluxApp {
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
 
+    createImageAction() {
+        this.dom.imageInput.click();
+    }
+
+    handleImageUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            this.whiteboard.addImage(event.target.result);
+            this.selectTool('select');
+        };
+        reader.readAsDataURL(file);
+        e.target.value = ""; // Reset for next selection
+    }
+
     /**
      * @method routeToEditor
      * @description Determines if the element is a LaTeX formula or Markdown text and opens the correct editor.
@@ -275,11 +286,8 @@ class FluxApp {
     routeToEditor(el) {
         if (!el || el.type !== 'text') return;
         const content = el.content.trim();
-        if (content.startsWith('$$') && content.endsWith('$$')) {
-            this.openFormulaEditor();
-        } else {
-            this.openMarkdownEditor();
-        }
+        if (content.startsWith('$$') && content.endsWith('$$')) this.openFormulaEditor();
+        else this.openMarkdownEditor();
     }
 
     openMarkdownEditor() {
@@ -299,11 +307,7 @@ class FluxApp {
         this.whiteboard.saveHistory();
         if (elId && this.whiteboard) {
             const el = this.whiteboard.elements.find(e => e.id === elId);
-            if (el) {
-                el.content = text;
-                el.renderedImage = null; 
-                this.whiteboard.render();
-            }
+            if (el) { el.content = text; el.renderedImage = null; this.whiteboard.render(); }
         }
         this.state.editingElementId = null;
         this.dom.editorOverlay.classList.add('hidden');
@@ -345,9 +349,7 @@ class FluxApp {
         if (!el || el.type !== 'text') return;
         this.state.editingElementId = el.id;
         let content = el.content;
-        if (content.startsWith('$$') && content.endsWith('$$')) {
-            content = content.substring(2, content.length - 2).trim();
-        }
+        if (content.startsWith('$$') && content.endsWith('$$')) content = content.substring(2, content.length - 2).trim();
         this.dom.formulaInput.value = content;
         this.dom.formulaOverlay.classList.remove('hidden');
         this.dom.editBar.classList.add('hidden');
@@ -361,11 +363,7 @@ class FluxApp {
         this.whiteboard.saveHistory();
         if (elId && this.whiteboard) {
             const el = this.whiteboard.elements.find(e => e.id === elId);
-            if (el) {
-                el.content = `$$ ${rawLatex} $$`;
-                el.renderedImage = null; 
-                this.whiteboard.render();
-            }
+            if (el) { el.content = `$$ ${rawLatex} $$`; el.renderedImage = null; this.whiteboard.render(); }
         }
         this.state.editingElementId = null;
         this.dom.formulaOverlay.classList.add('hidden');
@@ -387,41 +385,31 @@ class FluxApp {
 
     syncStrokeUI(v) { this.dom.btnStrokePicker.textContent = `${v}px`; this.dom.strokeSlider.value = v; this.dom.strokeNumber.value = v; }
     syncPickerButtonAppearance(btn, c, isA) { if(isA){ btn.className='color-dot auto'; btn.style.background=''; } else if(c==='transparent'){ btn.className='color-dot transparent'; btn.style.background=''; } else { btn.className='color-dot'; btn.style.background=c; } }
-    updateSelectedProperty(cb) { 
-        if(this.whiteboard) { 
-            this.whiteboard.saveHistory();
-            this.whiteboard.interaction.selectedElements.forEach(cb); 
-            this.whiteboard.render(); 
-            this.updateEditBar(); 
-            this.syncHistoryUI();
-        } 
-    }
+    updateSelectedProperty(cb) { if(this.whiteboard) { this.whiteboard.saveHistory(); this.whiteboard.interaction.selectedElements.forEach(cb); this.whiteboard.render(); this.updateEditBar(); this.syncHistoryUI(); } }
 
     updateEditBar() {
-        if (this.state.editingElementId) {
-            this.dom.editBar.classList.add('hidden');
-            return;
-        }
+        if (this.state.editingElementId) { this.dom.editBar.classList.add('hidden'); return; }
         if(!this.whiteboard) return;
         const sel = this.whiteboard.interaction.selectedElements;
         if(sel.length > 0) {
             this.dom.editBar.classList.remove('hidden');
             if(sel.length === 1) {
                 const el = sel[0];
-                const isL = el.type === 'line', isS = el.type === 'shape', isT = el.type === 'text';
+                const isL = el.type === 'line', isS = el.type === 'shape', isT = el.type === 'text', isI = el.type === 'image';
                 this.dom.dividerTextActions.style.display = isT ? 'block' : 'none';
                 this.dom.groupTextActions.style.display = isT ? 'flex' : 'none';
-                document.getElementById('divider-stroke').style.display = isT ? 'none' : 'block';
-                document.getElementById('group-stroke').style.display = isT ? 'none' : 'flex';
-                document.getElementById('divider-style').style.display = isT ? 'none' : 'block';
-                document.getElementById('group-style').style.display = isT ? 'none' : 'flex';
+                document.getElementById('divider-stroke').style.display = (isT || isI) ? 'none' : 'block';
+                document.getElementById('group-stroke').style.display = (isT || isI) ? 'none' : 'flex';
+                document.getElementById('divider-style').style.display = (isT || isI) ? 'none' : 'block';
+                document.getElementById('group-style').style.display = (isT || isI) ? 'none' : 'flex';
                 document.getElementById('divider-arrows').style.display = isL ? 'block' : 'none';
                 document.getElementById('group-arrows').style.display = isL ? 'flex' : 'none';
                 this.dom.btnFillPicker.style.display = isS ? 'flex' : 'none';
                 this.dom.colorOptEmpty.style.display = isS ? 'flex' : 'none';
-                if(!isT) this.syncStrokeUI(el.strokeWidth || el.width || 3);
+                if(!isT && !isI) this.syncStrokeUI(el.strokeWidth || el.width || 3);
                 if(isS) this.syncPickerButtonAppearance(this.dom.btnFillPicker, el.fillColor, el.isAutoFill);
-                this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
+                if(!isI) this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
+                else this.dom.btnColorPicker.style.display = 'none'; // Hide color picker for images
             }
         } else this.dom.editBar.classList.add('hidden');
     }
@@ -473,11 +461,8 @@ class FluxApp {
         const board = this.project.boards.find(b => b.id === id);
         if (this.whiteboard && board) {
             this.whiteboard.loadState({ elements: board.elements, view: board.view });
-            this.whiteboard.history.undoStack = [];
-            this.whiteboard.history.redoStack = [];
-            this.syncHistoryUI();
-            this.updateEditBar();
-            this.whiteboard.render();
+            this.whiteboard.history.undoStack = []; this.whiteboard.history.redoStack = [];
+            this.syncHistoryUI(); this.updateEditBar(); this.whiteboard.render();
         }
         this.renderLibrary();
     }
@@ -488,17 +473,12 @@ class FluxApp {
     }
 
     startNewBoard() {
-        if (this.project.boards.length === 0) {
-            this.addNewBoardToProject("Initial Board");
-        }
-        this.dom.menu.classList.add('hidden');
-        this.dom.canvas.classList.remove('hidden');
-        this.dom.toolbar.classList.remove('hidden');
-        this.dom.btnHome.classList.remove('hidden');
+        if (this.project.boards.length === 0) this.addNewBoardToProject("Initial Board");
+        this.dom.menu.classList.add('hidden'); this.dom.canvas.classList.remove('hidden');
+        this.dom.toolbar.classList.remove('hidden'); this.dom.btnHome.classList.remove('hidden');
         this.dom.libNav.classList.remove('hidden');
         if(this.whiteboard) this.whiteboard.resize();
-        this.state.boardActive = true;
-        this.renderLibrary();
+        this.state.boardActive = true; this.renderLibrary();
     }
 
     addNewBoardToProject(name) {
@@ -515,14 +495,10 @@ class FluxApp {
     returnToHome() {
         this.project = { name: "Untitled Project", boards: [] };
         this.state.activeBoardId = null;
-        this.dom.canvas.classList.add('hidden'); 
-        this.dom.toolbar.classList.add('hidden'); 
-        this.dom.editBar.classList.add('hidden');
-        this.dom.btnHome.classList.add('hidden'); 
-        this.dom.libNav.classList.add('hidden'); 
-        this.state.boardActive = false; 
-        this.dom.menu.classList.remove('hidden');
-        this.renderLibrary();
+        this.dom.canvas.classList.add('hidden'); this.dom.toolbar.classList.add('hidden'); 
+        this.dom.editBar.classList.add('hidden'); this.dom.btnHome.classList.add('hidden'); 
+        this.dom.libNav.classList.add('hidden'); this.state.boardActive = false; 
+        this.dom.menu.classList.remove('hidden'); this.renderLibrary();
     }
 
     async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of names) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
