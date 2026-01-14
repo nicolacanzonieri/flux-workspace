@@ -13,6 +13,11 @@
     <link rel="icon" type="image/x-icon" href="icon.png"/>
     <link rel="manifest" href="manifest.json"/>
     <link rel="stylesheet" href="style.css"/>
+
+    <!-- External Libraries for Markdown & LaTeX Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
     <title>Flux</title>
 </head>
@@ -83,7 +88,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
                             <path d="M5 12h14"/><path d="M12 5v14"/>
                         </svg>
-                        <span class="label">New Project</span> <!-- Cambiato da New Board a New Project -->
+                        <span class="label">New Project</span>
                     </button>
                     <button id="btn-open-file" class="flux-btn">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -94,6 +99,15 @@
                 </div>
             </div>
             <input type="file" id="file-input" accept=".json,.flux" style="display: none;" />
+        </div>
+
+        <!-- MARKDOWN EDITOR OVERLAY -->
+        <div id="markdown-editor-overlay" class="editor-overlay hidden">
+            <div class="editor-header">
+                <span class="editor-title">Markdown / LaTeX Editor</span>
+                <button id="btn-close-editor" class="tool-btn text-btn">Done</button>
+            </div>
+            <textarea id="md-input" class="markdown-textarea" placeholder="Type Markdown or LaTeX (e.g. $E=mc^2$)..." spellcheck="false"></textarea>
         </div>
 
         <!-- EDITING TOOLBAR -->

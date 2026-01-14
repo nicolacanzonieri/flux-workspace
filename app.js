@@ -34,6 +34,12 @@ class FluxApp {
             colorModal: document.getElementById('color-modal'),
             strokeModal: document.getElementById('stroke-modal'),
             shapesModal: document.getElementById('shapes-modal'),
+            
+            // Markdown Editor
+            editorOverlay: document.getElementById('markdown-editor-overlay'),
+            mdInput: document.getElementById('md-input'),
+            btnCloseEditor: document.getElementById('btn-close-editor'),
+
             btnCloseColor: document.getElementById('btn-close-color'),
             btnCloseStroke: document.getElementById('btn-close-stroke'),
             btnCloseShapes: document.getElementById('btn-close-shapes'),
@@ -71,7 +77,8 @@ class FluxApp {
             boardActive: false, 
             activeTool: 'select', 
             pickingMode: 'stroke',
-            activeBoardId: null
+            activeBoardId: null,
+            editingElementId: null
         };
 
         this.project = {
@@ -145,9 +152,29 @@ class FluxApp {
         
         [this.dom.btnCloseSettings, this.dom.btnCloseColor, this.dom.btnCloseStroke, this.dom.btnCloseShapes].forEach(b => b.addEventListener('click', () => b.closest('.modal-overlay').classList.add('hidden')));
 
+        // Markdown Editor Events
+        this.dom.btnEditText.addEventListener('click', () => this.openMarkdownEditor());
+        this.dom.btnCloseEditor.addEventListener('click', () => this.saveAndCloseMarkdownEditor());
+        
+        // Double click on canvas to edit text (handled via custom event from whiteboard)
+        this.dom.canvas.addEventListener('flux-doubleclick', (e) => {
+             const el = e.detail.element;
+             if (el && el.type === 'text') {
+                 this.whiteboard.interaction.selectedElements = [el];
+                 this.updateEditBar();
+                 this.openMarkdownEditor();
+             }
+        });
+
         this.dom.themeToggle.addEventListener('change', e => {
             const isL = e.target.checked; document.body.classList.toggle('light-mode', isL);
-            localStorage.setItem('flux-theme', isL ? 'light' : 'dark'); if(this.whiteboard) this.whiteboard.updateThemeColors(isL);
+            localStorage.setItem('flux-theme', isL ? 'light' : 'dark'); 
+            if(this.whiteboard) {
+                this.whiteboard.updateThemeColors(isL);
+                // Force re-render of text elements to update color in SVG
+                this.whiteboard.elements.forEach(el => { if(el.type === 'text') el.renderedImage = null; });
+                this.whiteboard.render();
+            }
         });
 
         this.dom.gridToggle.addEventListener('change', e => { localStorage.setItem('flux-grid', e.target.checked); if(this.whiteboard) this.whiteboard.setGridEnabled(e.target.checked); });
@@ -163,6 +190,7 @@ class FluxApp {
                     if(color === 'auto') { el.fillColor = document.body.classList.contains('light-mode') ? '#1a1a1d' : '#ffffff'; el.isAutoFill = true; }
                     else { el.fillColor = color; el.isAutoFill = false; }
                 }
+                if (el.type === 'text') el.renderedImage = null; // Invalidate cache
             });
             this.dom.colorModal.classList.add('hidden'); this.updateEditBar();
         }));
@@ -179,8 +207,8 @@ class FluxApp {
             this.dom.shapesModal.classList.add('hidden'); this.selectTool('select');
         }));
 
-        this.dom.btnTextSizeUp.addEventListener('click', () => this.updateSelectedProperty(el => el.fontSize += 2));
-        this.dom.btnTextSizeDown.addEventListener('click', () => this.updateSelectedProperty(el => el.fontSize = Math.max(8, el.fontSize - 2)));
+        this.dom.btnTextSizeUp.addEventListener('click', () => this.updateSelectedProperty(el => { el.fontSize += 2; if(el.type === 'text') el.renderedImage = null; }));
+        this.dom.btnTextSizeDown.addEventListener('click', () => this.updateSelectedProperty(el => { el.fontSize = Math.max(8, el.fontSize - 2); if(el.type === 'text') el.renderedImage = null; }));
 
         this.dom.styleBtns.forEach(btn => btn.addEventListener('click', () => {
             const s = btn.getAttribute('data-style'); this.updateSelectedProperty(el => el.dashStyle = s);
@@ -194,6 +222,42 @@ class FluxApp {
         this.dom.btnDuplicate.addEventListener('click', () => this.whiteboard.duplicateSelected());
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
+
+    // --- Editor Logic ---
+
+    openMarkdownEditor() {
+        const el = this.whiteboard.interaction.selectedElements[0];
+        if (!el || el.type !== 'text') return;
+
+        this.state.editingElementId = el.id;
+        this.dom.mdInput.value = el.content;
+        this.dom.editorOverlay.classList.remove('hidden');
+        
+        // Hide other UI elements to focus on editor (except top nav)
+        this.dom.editBar.classList.add('hidden');
+        this.dom.toolbar.classList.add('hidden');
+    }
+
+    saveAndCloseMarkdownEditor() {
+        const text = this.dom.mdInput.value;
+        const elId = this.state.editingElementId;
+        
+        if (elId && this.whiteboard) {
+            const el = this.whiteboard.elements.find(e => e.id === elId);
+            if (el) {
+                el.content = text;
+                el.renderedImage = null; // Invalidate cache to trigger re-render
+                this.whiteboard.render();
+            }
+        }
+        
+        this.dom.editorOverlay.classList.add('hidden');
+        this.dom.toolbar.classList.remove('hidden');
+        this.updateEditBar(); // Reshow edit bar
+        this.state.editingElementId = null;
+    }
+
+    // --- End Editor Logic ---
 
     syncStrokeUI(v) { this.dom.btnStrokePicker.textContent = `${v}px`; this.dom.strokeSlider.value = v; this.dom.strokeNumber.value = v; }
     syncPickerButtonAppearance(btn, c, isA) { if(isA){ btn.className='color-dot auto'; btn.style.background=''; } else if(c==='transparent'){ btn.className='color-dot transparent'; btn.style.background=''; } else { btn.className='color-dot'; btn.style.background=c; } }

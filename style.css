@@ -60,7 +60,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 /* Right Navigation (Settings, Home) */
 .top-nav {
     position: absolute; top: calc(var(--safe-top) + 15px); right: calc(var(--safe-right) + 15px);
-    z-index: 20; display: flex; align-items: center; justify-content: center;
+    z-index: 120; display: flex; align-items: center; justify-content: center;
     background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--border-color); border-radius: 50px; padding: 4px;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); transition: all 0.5s var(--ease-out);
@@ -248,7 +248,33 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 #grid-toggle:checked + .grid-toggle-label .grid-pattern { opacity: 0.4; }
 #grid-toggle:checked + .grid-toggle-label .grid-knob { transform: translateX(28px); }
 
-/* === 8. WHITEBOARD / CANVAS === */
+/* === 8. MARKDOWN EDITOR OVERLAY === */
+.editor-overlay {
+    position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+    background-color: var(--bg-color); z-index: 90; /* Below Top Nav (120) but above canvas */
+    display: flex; flex-direction: column;
+    padding-top: calc(var(--safe-top) + 80px); /* Clear the Top Nav */
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.editor-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.editor-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 20px; border-bottom: 1px solid var(--border-color);
+    background: var(--surface-color);
+}
+.editor-title { font-size: 0.9rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 1px; }
+
+.markdown-textarea {
+    flex: 1; width: 100%; height: 100%;
+    background-color: var(--bg-color); color: var(--text-primary);
+    border: none; padding: 20px;
+    font-family: 'Fira Code', 'Courier New', Courier, monospace;
+    font-size: 16px; line-height: 1.6; resize: none;
+}
+.markdown-textarea:focus { outline: none; }
+
+/* === 9. WHITEBOARD / CANVAS === */
 canvas { display: block; width: 100vw; height: 100vh; touch-action: none; background-color: var(--bg-color); }
 canvas.hidden { display: none; }
 canvas.panning { cursor: grabbing !important; }

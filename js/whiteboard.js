@@ -29,7 +29,8 @@ class FluxWhiteboard {
             isPanning: false, isDraggingHandle: false, isDraggingElements: false, isDrawingPath: false,
             isSelecting: false, selectionBox: null, selectedElements: [],
             draggedElement: null, draggedHandle: null, lastMouseX: 0, lastMouseY: 0,
-            dragLastWorldPos: { x: 0, y: 0 }, initialTouchDistance: 0, initialTouchCenter: { x: 0, y: 0 }
+            dragLastWorldPos: { x: 0, y: 0 }, initialTouchDistance: 0, initialTouchCenter: { x: 0, y: 0 },
+            lastClickTime: 0
         };
 
         this.elements = [];
@@ -53,8 +54,15 @@ class FluxWhiteboard {
      * @description Returns the current state of the whiteboard for saving.
      */
     getState() {
+        // Strip out transient render properties like renderedImage before saving
+        const cleanElements = this.elements.map(el => {
+            const copy = { ...el };
+            if (copy.renderedImage) delete copy.renderedImage;
+            return copy;
+        });
+
         return {
-            elements: JSON.parse(JSON.stringify(this.elements)), // Deep copy
+            elements: JSON.parse(JSON.stringify(cleanElements)),
             view: { ...this.view }
         };
     }
@@ -99,7 +107,7 @@ class FluxWhiteboard {
 
     addText(color) {
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newText = { id: Date.now(), type: 'text', content: "Your text here...", x: center.x - 100, y: center.y - 40, width: 200, height: 80, color, isAutoColor: true, fontSize: 16, hasOverflow: false };
+        const newText = { id: Date.now(), type: 'text', content: "# New Text\nType **Markdown** or $LaTeX$ here...", x: center.x - 125, y: center.y - 75, width: 250, height: 150, color, isAutoColor: true, fontSize: 16, renderedImage: null };
         this.elements.push(newText); this.interaction.selectedElements = [newText]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
@@ -110,7 +118,8 @@ class FluxWhiteboard {
             const offset = 20 / this.view.scale;
             if (clone.type === 'line') { clone.p1.x += offset; clone.p1.y += offset; clone.p2.x += offset; clone.p2.y += offset; }
             else if (clone.type === 'pen') { clone.points.forEach(p => { p.x += offset; p.y += offset; }); }
-            else if (clone.type === 'shape' || clone.type === 'text') { clone.x += offset; clone.y += offset; }
+            else if (clone.type === 'shape') { clone.x += offset; clone.y += offset; }
+            else if (clone.type === 'text') { clone.x += offset; clone.y += offset; clone.renderedImage = null; }
             this.elements.push(clone); newSelected.push(clone);
         });
         this.interaction.selectedElements = newSelected; this.render();
@@ -123,7 +132,10 @@ class FluxWhiteboard {
 
     updateThemeColors(isLightMode) {
         const newColor = isLightMode ? '#1a1a1d' : '#ffffff';
-        this.elements.forEach(el => { if (el.isAutoColor) el.color = newColor; if (el.isAutoFill) el.fillColor = newColor; });
+        this.elements.forEach(el => { 
+            if (el.isAutoColor) el.color = newColor; 
+            if (el.isAutoFill) el.fillColor = newColor; 
+        });
         this.render();
     }
 
@@ -144,6 +156,21 @@ class FluxWhiteboard {
     handleMouseDown(e) {
         const mouse = this.screenToWorld(e.clientX, e.clientY);
         const tool = window.flux.state.activeTool;
+        
+        // Handle Double Click for Text
+        const now = Date.now();
+        if (now - this.interaction.lastClickTime < 300) {
+            // Check for hits
+            for (let i = this.elements.length - 1; i >= 0; i--) {
+                const el = this.elements[i];
+                if (this.isPointInElement(mouse, el)) {
+                     this.canvas.dispatchEvent(new CustomEvent('flux-doubleclick', { detail: { element: el } }));
+                     return;
+                }
+            }
+        }
+        this.interaction.lastClickTime = now;
+
         if (e.shiftKey || e.button === 1 || tool === 'pan') {
             this.interaction.isPanning = true; this.interaction.lastMouseX = e.clientX;
             this.interaction.lastMouseY = e.clientY; this.canvas.classList.add('panning');
@@ -221,6 +248,7 @@ class FluxWhiteboard {
     }
 
     resizeElement(el, handleIdx, mouse) {
+        if (el.renderedImage) el.renderedImage = null; // Invalidate cache on resize
         if (el.type === 'line') { const key = handleIdx === 0 ? 'p1' : 'p2'; el[key].x = mouse.x; el[key].y = mouse.y; return; }
         if (el.type === 'shape' || el.type === 'text') {
             const minSize = 20, right = el.x + el.width, bottom = el.y + el.height;
@@ -344,25 +372,131 @@ class FluxWhiteboard {
         });
     }
 
+    /**
+     * @method drawTextElement
+     * @description Renders Markdown/LaTeX content via SVG ForeignObject logic.
+     */
     drawTextElement(el, isSelected) {
-        const sPos = this.worldToScreen(el.x, el.y), sW = el.width * this.view.scale, sH = el.height * this.view.scale, scaledFontSize = el.fontSize * this.view.scale;
-        this.ctx.font = `${scaledFontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`; this.ctx.fillStyle = el.color; this.ctx.textBaseline = 'top';
-        const lines = this.wrapText(el.content, el.width); const lineHeight = scaledFontSize * 1.2, totalTextHeight = lines.length * lineHeight;
-        el.hasOverflow = totalTextHeight > sH;
-        if (isSelected || el.hasOverflow) { this.ctx.lineWidth = 1; this.ctx.strokeStyle = el.hasOverflow ? '#ff4757' : getComputedStyle(document.body).getPropertyValue('--accent-color'); this.ctx.setLineDash([5, 5]); this.ctx.strokeRect(sPos.x, sPos.y, sW, sH); this.ctx.setLineDash([]); }
-        this.ctx.save(); this.ctx.beginPath(); this.ctx.rect(sPos.x, sPos.y, sW, sH); this.ctx.clip();
-        lines.forEach((line, i) => { this.ctx.fillText(line, sPos.x, sPos.y + i * lineHeight); }); this.ctx.restore();
-        if (isSelected) this.getElementHandles(el).forEach(h => { const sh = this.worldToScreen(h.x, h.y); this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color')); });
+        const sPos = this.worldToScreen(el.x, el.y);
+        const sW = el.width * this.view.scale;
+        const sH = el.height * this.view.scale;
+        
+        // Draw selection box first (if selected)
+        if (isSelected) { 
+            this.ctx.lineWidth = 1; 
+            this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color'); 
+            this.ctx.setLineDash([5, 5]); 
+            this.ctx.strokeRect(sPos.x, sPos.y, sW, sH); 
+            this.ctx.setLineDash([]); 
+            this.getElementHandles(el).forEach(h => { 
+                const sh = this.worldToScreen(h.x, h.y); 
+                this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color')); 
+            });
+        }
+
+        // Render content
+        if (el.renderedImage) {
+            // Draw cached image
+            this.ctx.drawImage(el.renderedImage, sPos.x, sPos.y, sW, sH);
+        } else {
+            // Cache miss, trigger async render
+            this.renderMarkdownToImage(el);
+            // Draw placeholder or raw text in meantime? 
+            // Better to leave empty for a frame than draw wrong text, 
+            // but let's draw a loading indicator or simple text if needed.
+            // For now, let's just wait for the next frame render callback.
+        }
     }
 
-    wrapText(text, maxWidth) {
-        const words = text.split(' '); let lines = []; let currentLine = words[0];
-        for (let i = 1; i < words.length; i++) {
-            const word = words[i]; const width = this.ctx.measureText(currentLine + " " + word).width / this.view.scale;
-            if (width < maxWidth) currentLine += " " + word;
-            else { lines.push(currentLine); currentLine = word; }
+    /**
+     * @method renderMarkdownToImage
+     * @description Converts Markdown+LaTeX to an SVG Image object and caches it on the element.
+     */
+    renderMarkdownToImage(el) {
+        // Prevent multiple concurrent renders for the same element state
+        if (el.isRendering) return;
+        el.isRendering = true;
+
+        // Use Marked for Markdown parsing
+        let htmlContent = "";
+        if (window.marked) {
+            htmlContent = window.marked.parse(el.content);
+        } else {
+            htmlContent = `<p>${el.content}</p>`; // Fallback
         }
-        lines.push(currentLine); return lines;
+
+        // Create a temporary container to render LaTeX strings using KaTeX logic (simplified string replace)
+        // Note: Full KaTeX integration usually requires DOM, but here we do string manip or use renderToString
+        if (window.katex) {
+            // Replace $$...$$ block math
+            htmlContent = htmlContent.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
+                try { return window.katex.renderToString(tex, { displayMode: true, throwOnError: false }); } catch(e){ return match; }
+            });
+            // Replace $...$ inline math
+            htmlContent = htmlContent.replace(/\$([^\$\n]+?)\$/g, (match, tex) => {
+                try { return window.katex.renderToString(tex, { displayMode: false, throwOnError: false }); } catch(e){ return match; }
+            });
+        }
+
+        // Construct SVG data
+        // We embed standard CSS fonts to ensure it looks right inside the Canvas
+        const fontSize = el.fontSize;
+        const color = el.color;
+        
+        // Include KaTeX CSS (basic subset needed for layout) if Math is used, 
+        // but for a robust solution in a single file, we often rely on the fact 
+        // that foreignObject runs in the browser context. 
+        // HOWEVER, Canvas 'drawImage' with SVG acts more secure. 
+        // External stylesheets (CDN) inside standard IMG tags might be blocked by CORS or security policies.
+        // We will try to inject basic styles inline.
+
+        const computedStyle = getComputedStyle(document.body);
+        const fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        
+        const svgString = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${el.width}" height="${el.height}">
+            <foreignObject width="100%" height="100%">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="
+                    font-family: ${fontFamily};
+                    font-size: ${fontSize}px;
+                    color: ${color};
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                    word-wrap: break-word;
+                ">
+                    <style>
+                        /* Minimal CSS reset for inside SVG */
+                        p { margin: 0 0 0.5em 0; }
+                        h1, h2, h3 { margin: 0 0 0.5em 0; font-weight: 600; line-height: 1.2; }
+                        h1 { font-size: 1.5em; } h2 { font-size: 1.3em; } h3 { font-size: 1.1em; }
+                        ul, ol { margin: 0 0 0.5em 0; padding-left: 1.2em; }
+                        blockquote { border-left: 3px solid ${color}; padding-left: 10px; opacity: 0.8; margin: 0; }
+                        code { background: rgba(127,127,127,0.2); padding: 2px 4px; border-radius: 3px; font-family: monospace; }
+                        .katex { font-size: 1em; } /* Basic sizing for Math */
+                    </style>
+                    ${htmlContent}
+                </div>
+            </foreignObject>
+        </svg>`;
+
+        const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        
+        img.onload = () => {
+            el.renderedImage = img;
+            el.isRendering = false;
+            URL.revokeObjectURL(url);
+            this.render(); // Re-render canvas with new image
+        };
+        
+        img.onerror = () => {
+            el.isRendering = false;
+            console.error("Failed to render text SVG");
+        };
+
+        img.src = url;
     }
 
     drawShapePath(t, x, y, w, h) {
