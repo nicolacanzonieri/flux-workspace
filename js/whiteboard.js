@@ -33,6 +33,12 @@ class FluxWhiteboard {
             lastClickTime: 0
         };
 
+        this.history = {
+            undoStack: [],
+            redoStack: [],
+            maxDepth: 50
+        };
+
         this.elements = [];
         this.init();
     }
@@ -54,7 +60,6 @@ class FluxWhiteboard {
      * @description Returns the current state of the whiteboard for saving.
      */
     getState() {
-        // Strip out transient render properties like renderedImage before saving
         const cleanElements = this.elements.map(el => {
             const copy = { ...el };
             if (copy.renderedImage) delete copy.renderedImage;
@@ -88,7 +93,51 @@ class FluxWhiteboard {
     screenToWorld(x, y) { return { x: (x - this.view.offsetX) / this.view.scale, y: (y - this.view.offsetY) / this.view.scale }; }
     worldToScreen(x, y) { return { x: x * this.view.scale + this.view.offsetX, y: y * this.view.scale + this.view.offsetY }; }
 
+    /**
+     * @method saveHistory
+     * @description Salva lo stato attuale degli elementi prima di una modifica.
+     */
+    saveHistory() {
+        const snapshot = JSON.stringify(this.elements);
+        if (this.history.undoStack.length > 0 && this.history.undoStack[this.history.undoStack.length - 1] === snapshot) {
+            return;
+        }
+        this.history.undoStack.push(snapshot);
+        this.history.redoStack = []; 
+        if (this.history.undoStack.length > this.history.maxDepth) {
+            this.history.undoStack.shift();
+        }
+        if(window.flux) window.flux.syncHistoryUI();
+    }
+
+    undo() {
+        if (this.history.undoStack.length === 0) return;
+        this.history.redoStack.push(JSON.stringify(this.elements));
+        const previousState = this.history.undoStack.pop();
+        this.elements = JSON.parse(previousState);
+        this.interaction.selectedElements = [];
+        this.render();
+        if(window.flux) {
+            window.flux.syncHistoryUI();
+            window.flux.updateEditBar();
+        }
+    }
+
+    redo() {
+        if (this.history.redoStack.length === 0) return;
+        this.history.undoStack.push(JSON.stringify(this.elements));
+        const nextState = this.history.redoStack.pop();
+        this.elements = JSON.parse(nextState);
+        this.interaction.selectedElements = [];
+        this.render();
+        if(window.flux) {
+            window.flux.syncHistoryUI();
+            window.flux.updateEditBar();
+        }
+    }
+
     addLine(color) {
+        this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
         const newLine = { id: Date.now(), type: 'line', p1: { x: center.x - 50, y: center.y }, p2: { x: center.x + 50, y: center.y }, color, isAutoColor: true, width: 3, dashStyle: 'solid', arrowStart: false, arrowEnd: false };
         this.elements.push(newLine); this.interaction.selectedElements = [newLine]; this.render(); if(window.flux) window.flux.updateEditBar();
@@ -100,24 +149,28 @@ class FluxWhiteboard {
     }
 
     addShape(shapeType, color) {
+        this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
         const newShape = { id: Date.now(), type: 'shape', shapeType, x: center.x - 100, y: center.y - 100, width: 200, height: 200, color, fillColor: 'transparent', isAutoColor: true, isAutoFill: false, strokeWidth: 3, dashStyle: 'solid' };
         this.elements.push(newShape); this.interaction.selectedElements = [newShape]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
     addText(color) {
+        this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
         const newText = { id: Date.now(), type: 'text', content: "# New Text\nType **Markdown** or $LaTeX$ here...", x: center.x - 125, y: center.y - 75, width: 250, height: 150, color, isAutoColor: true, fontSize: 16, renderedImage: null };
         this.elements.push(newText); this.interaction.selectedElements = [newText]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
     addFormula(color) {
+        this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
         const newFormula = { id: Date.now(), type: 'text', content: "$$ x = 0 $$", x: center.x - 100, y: center.y - 50, width: 200, height: 100, color, isAutoColor: true, fontSize: 16, renderedImage: null };
         this.elements.push(newFormula); this.interaction.selectedElements = [newFormula]; this.render(); if(window.flux) window.flux.updateEditBar();
     }
 
     duplicateSelected() {
+        this.saveHistory();
         const newSelected = [];
         this.interaction.selectedElements.forEach(el => {
             const clone = JSON.parse(JSON.stringify(el)); clone.id = Date.now() + Math.random();
@@ -132,6 +185,7 @@ class FluxWhiteboard {
     }
 
     deleteSelected() {
+        this.saveHistory();
         this.elements = this.elements.filter(el => !this.interaction.selectedElements.includes(el));
         this.interaction.selectedElements = []; this.render(); if(window.flux) window.flux.updateEditBar();
     }
@@ -162,56 +216,80 @@ class FluxWhiteboard {
     handleMouseDown(e) {
         const mouse = this.screenToWorld(e.clientX, e.clientY);
         const tool = window.flux.state.activeTool;
-        
-        // Handle Double Click for Text
+
+        // 1. PANNING (Shift + click, Middle mouse or Pan tool)
+        if (e.shiftKey || e.button === 1 || tool === 'pan') {
+            this.interaction.isPanning = true; 
+            this.interaction.lastMouseX = e.clientX;
+            this.interaction.lastMouseY = e.clientY; 
+            this.canvas.classList.add('panning');
+            this.render(); 
+            return;
+        }
+
         const now = Date.now();
         if (now - this.interaction.lastClickTime < 300) {
-            // Check for hits
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (this.isPointInElement(mouse, el)) {
-                     this.canvas.dispatchEvent(new CustomEvent('flux-doubleclick', { detail: { element: el } }));
-                     return;
+                    this.canvas.dispatchEvent(new CustomEvent('flux-doubleclick', { detail: { element: el } }));
+                    return;
                 }
             }
         }
         this.interaction.lastClickTime = now;
 
-        if (e.shiftKey || e.button === 1 || tool === 'pan') {
-            this.interaction.isPanning = true; this.interaction.lastMouseX = e.clientX;
-            this.interaction.lastMouseY = e.clientY; this.canvas.classList.add('panning');
-            this.render(); return;
-        }
+        // 3. PEN TOOL
         if (tool === 'pen') {
+            this.saveHistory();
             this.interaction.selectedElements = [];
             const isLight = document.body.classList.contains('light-mode');
             this.startPath(isLight ? '#1a1a1d' : '#ffffff');
             this.interaction.draggedElement.points.push({ x: mouse.x, y: mouse.y });
-            this.render(); return;
+            this.render(); 
+            return;
         }
+
+        // 4. DRAG HANDLE (Resizing)
         for (const el of this.interaction.selectedElements) {
             const handles = this.getElementHandles(el);
             for (let i = 0; i < handles.length; i++) {
                 const h = handles[i];
                 if (Math.hypot(mouse.x - h.x, mouse.y - h.y) * this.view.scale < this.config.handleHitThreshold) {
-                    this.interaction.isDraggingHandle = true; this.interaction.draggedElement = el;
-                    this.interaction.draggedHandle = i; return;
+                    this.saveHistory();
+                    this.interaction.isDraggingHandle = true; 
+                    this.interaction.draggedElement = el;
+                    this.interaction.draggedHandle = i; 
+                    return;
                 }
             }
         }
+
+        // 5. SELECTION AND DRAGGING ELEMENTS
         if (tool === 'select') {
             let hitFound = false;
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (this.isPointInElement(mouse, el)) {
-                    if (!this.interaction.selectedElements.includes(el)) this.interaction.selectedElements = [el];
-                    this.interaction.isDraggingElements = true; this.interaction.dragLastWorldPos = mouse;
-                    hitFound = true; break;
+                    if (!this.interaction.selectedElements.includes(el)) {
+                        this.interaction.selectedElements = [el];
+                    }
+                    this.saveHistory();
+                    this.interaction.isDraggingElements = true; 
+                    this.interaction.dragLastWorldPos = mouse;
+                    hitFound = true; 
+                    break;
                 }
             }
-            if (!hitFound) { this.interaction.selectedElements = []; this.interaction.isSelecting = true; this.interaction.selectionBox = { startX: mouse.x, startY: mouse.y, currentX: mouse.x, currentY: mouse.y }; }
+            if (!hitFound) { 
+                this.interaction.selectedElements = []; 
+                this.interaction.isSelecting = true; 
+                this.interaction.selectionBox = { startX: mouse.x, startY: mouse.y, currentX: mouse.x, currentY: mouse.y }; 
+            }
         }
-        this.render(); if(window.flux) window.flux.updateEditBar();
+
+        this.render(); 
+        if(window.flux) window.flux.updateEditBar();
     }
 
     handleMouseMove(e) {
@@ -254,7 +332,7 @@ class FluxWhiteboard {
     }
 
     resizeElement(el, handleIdx, mouse) {
-        if (el.renderedImage) el.renderedImage = null; // Invalidate cache on resize
+        if (el.renderedImage) el.renderedImage = null; 
         if (el.type === 'line') { const key = handleIdx === 0 ? 'p1' : 'p2'; el[key].x = mouse.x; el[key].y = mouse.y; return; }
         if (el.type === 'shape' || el.type === 'text') {
             const minSize = 20, right = el.x + el.width, bottom = el.y + el.height;

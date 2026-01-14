@@ -56,6 +56,16 @@
                 </div>
             </button>
 
+            <div class="history-pill">
+                <button id="btn-undo" class="icon-btn history-btn" aria-label="Undo" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
+                </button>
+                <div class="nav-separator"></div>
+                <button id="btn-redo" class="icon-btn history-btn" aria-label="Redo" disabled>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="m15 14 5-5-5-5"/><path d="M20 9H9.5A5.5 5.5 0 0 0 4 14.5A5.5 5.5 0 0 0 9.5 20H13"/></svg>
+                </button>
+            </div>
+
             <!-- Library Popup Window -->
             <div id="library-popup" class="library-popup hidden">
                 <div class="library-header">
@@ -142,7 +152,7 @@
             <div class="editor-toolbar-bottom">
                 <button class="latex-btn" data-latex="{" title="Open Brace">{</button>
                 <button class="latex-btn" data-latex="}" title="Close Brace">}</button>
-                <div class="md-separator"></div>
+                <div class="md-top"></div>
                 <button class="latex-btn" data-latex="\frac{}{}" title="Fraction">
                     <span style="font-family:serif; font-style:italic">a/b</span>
                 </button>

@@ -92,6 +92,9 @@ class FluxApp {
             name: "Untitled Project",
             boards: []
         };
+
+        this.dom.btnUndo = document.getElementById('btn-undo');
+        this.dom.btnRedo = document.getElementById('btn-redo');
         
         this.katexStyles = "";
         this.whiteboard = null;
@@ -141,6 +144,12 @@ class FluxApp {
         const g = localStorage.getItem('flux-grid'); if(g==='false'){ this.dom.gridToggle.checked=false; if(this.whiteboard) this.whiteboard.setGridEnabled(false); }
     }
 
+    syncHistoryUI() {
+        if (!this.whiteboard) return;
+        this.dom.btnUndo.disabled = this.whiteboard.history.undoStack.length === 0;
+        this.dom.btnRedo.disabled = this.whiteboard.history.redoStack.length === 0;
+    }
+
     bindEvents() {
         this.dom.btnNew.addEventListener('click', () => this.startNewBoard());
         this.dom.btnHome.addEventListener('click', () => this.returnToHome());
@@ -153,6 +162,9 @@ class FluxApp {
             this.dom.libPopup.classList.add('hidden');
             this.addNewBoardToProject();
         });
+
+        this.dom.btnUndo.addEventListener('click', () => this.whiteboard.undo());
+        this.dom.btnRedo.addEventListener('click', () => this.whiteboard.redo());
 
         this.dom.toolBtns.forEach(btn => btn.addEventListener('click', () => {
             const t = btn.getAttribute('data-tool');
@@ -284,6 +296,7 @@ class FluxApp {
     saveAndCloseMarkdownEditor() {
         const text = this.dom.mdInput.value;
         const elId = this.state.editingElementId;
+        this.whiteboard.saveHistory();
         if (elId && this.whiteboard) {
             const el = this.whiteboard.elements.find(e => e.id === elId);
             if (el) {
@@ -345,6 +358,7 @@ class FluxApp {
     saveAndCloseFormulaEditor() {
         const rawLatex = this.dom.formulaInput.value;
         const elId = this.state.editingElementId;
+        this.whiteboard.saveHistory();
         if (elId && this.whiteboard) {
             const el = this.whiteboard.elements.find(e => e.id === elId);
             if (el) {
@@ -373,7 +387,15 @@ class FluxApp {
 
     syncStrokeUI(v) { this.dom.btnStrokePicker.textContent = `${v}px`; this.dom.strokeSlider.value = v; this.dom.strokeNumber.value = v; }
     syncPickerButtonAppearance(btn, c, isA) { if(isA){ btn.className='color-dot auto'; btn.style.background=''; } else if(c==='transparent'){ btn.className='color-dot transparent'; btn.style.background=''; } else { btn.className='color-dot'; btn.style.background=c; } }
-    updateSelectedProperty(cb) { if(this.whiteboard) { this.whiteboard.interaction.selectedElements.forEach(cb); this.whiteboard.render(); this.updateEditBar(); } }
+    updateSelectedProperty(cb) { 
+        if(this.whiteboard) { 
+            this.whiteboard.saveHistory();
+            this.whiteboard.interaction.selectedElements.forEach(cb); 
+            this.whiteboard.render(); 
+            this.updateEditBar(); 
+            this.syncHistoryUI();
+        } 
+    }
 
     updateEditBar() {
         if (this.state.editingElementId) {
@@ -451,6 +473,9 @@ class FluxApp {
         const board = this.project.boards.find(b => b.id === id);
         if (this.whiteboard && board) {
             this.whiteboard.loadState({ elements: board.elements, view: board.view });
+            this.whiteboard.history.undoStack = [];
+            this.whiteboard.history.redoStack = [];
+            this.syncHistoryUI();
             this.updateEditBar();
             this.whiteboard.render();
         }
