@@ -251,10 +251,10 @@ class FluxApp {
             }
         }
         
+        this.state.editingElementId = null;
         this.dom.editorOverlay.classList.add('hidden');
         this.dom.toolbar.classList.remove('hidden');
-        this.updateEditBar(); // Reshow edit bar
-        this.state.editingElementId = null;
+        this.updateEditBar(); // Restore edit bar
     }
 
     // --- End Editor Logic ---
@@ -264,6 +264,12 @@ class FluxApp {
     updateSelectedProperty(cb) { if(this.whiteboard) { this.whiteboard.interaction.selectedElements.forEach(cb); this.whiteboard.render(); this.updateEditBar(); } }
 
     updateEditBar() {
+        // SAFETY CHECK: Never show edit bar if the markdown editor is active
+        if (this.state.editingElementId) {
+            this.dom.editBar.classList.add('hidden');
+            return;
+        }
+
         if(!this.whiteboard) return;
         const sel = this.whiteboard.interaction.selectedElements;
         if(sel.length > 0) {
