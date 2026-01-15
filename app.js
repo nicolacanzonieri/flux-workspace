@@ -26,6 +26,14 @@ class FluxApp {
             libPopup: document.getElementById('library-popup'),
             libBoardList: document.getElementById('library-board-list'),
             btnLibNewBoard: document.getElementById('btn-lib-new-board'),
+            
+            // ADDED: Library Views & Toggle
+            btnLibModeToggle: document.getElementById('btn-lib-mode-toggle'),
+            libViewBoards: document.getElementById('lib-view-boards'),
+            libViewPdfs: document.getElementById('lib-view-pdfs'),
+            libPdfList: document.getElementById('library-pdf-list'),
+            libFooterBoards: document.getElementById('lib-footer-boards'),
+            libTitle: document.getElementById('library-title'),
 
             btnCloseSettings: document.getElementById('btn-close-settings'),
             btnHardReset: document.getElementById('btn-hard-reset'),
@@ -56,7 +64,6 @@ class FluxApp {
             gridToggle: document.getElementById('grid-toggle'),
             fileInput: document.getElementById('file-input'),
             imageInput: document.getElementById('image-input'),
-            // ADDED: PDF Input
             pdfInput: document.getElementById('pdf-input'),
 
             btnColorPicker: document.getElementById('btn-color-picker'),
@@ -91,7 +98,9 @@ class FluxApp {
             activeTool: 'select', 
             pickingMode: 'stroke',
             activeBoardId: null,
-            editingElementId: null
+            editingElementId: null,
+            // ADDED: Track library view mode
+            libraryMode: 'boards' // 'boards' or 'pdfs'
         };
 
         this.project = {
@@ -169,10 +178,24 @@ class FluxApp {
         this.dom.btnOpen.addEventListener('click', () => this.dom.fileInput.click());
         this.dom.fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
 
-        this.dom.btnLibToggle.addEventListener('click', (e) => { e.stopPropagation(); this.dom.libPopup.classList.toggle('hidden'); });
+        this.dom.btnLibToggle.addEventListener('click', (e) => { 
+            e.stopPropagation(); 
+            this.dom.libPopup.classList.toggle('hidden');
+            // Reset to boards view when opening
+            if (!this.dom.libPopup.classList.contains('hidden')) {
+                this.switchLibraryView('boards');
+            }
+        });
+        
         window.addEventListener('click', () => this.dom.libPopup.classList.add('hidden'));
         this.dom.libPopup.addEventListener('click', (e) => e.stopPropagation());
         
+        // ADDED: Library View Toggle
+        this.dom.btnLibModeToggle.addEventListener('click', () => {
+            const newMode = this.state.libraryMode === 'boards' ? 'pdfs' : 'boards';
+            this.switchLibraryView(newMode);
+        });
+
         this.dom.btnLibNewBoard.addEventListener('click', () => {
             this.dom.libPopup.classList.add('hidden');
             this.addNewBoardToProject();
@@ -188,13 +211,11 @@ class FluxApp {
             else if(t === 'text') this.createTextAction();
             else if(t === 'formula') this.createFormulaAction();
             else if(t === 'image') this.createImageAction();
-            // ADDED: Attachment tool trigger
             else if(t === 'attachment') this.createAttachmentAction();
             else this.selectTool(t);
         }));
 
         this.dom.imageInput.addEventListener('change', (e) => this.handleImageUpload(e));
-        // ADDED: PDF handler
         this.dom.pdfInput.addEventListener('change', (e) => this.handlePdfUpload(e));
 
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
@@ -382,7 +403,6 @@ class FluxApp {
         this.dom.imageInput.click();
     }
 
-    // ADDED: Logic for Attachment/PDF
     createAttachmentAction() {
         this.dom.pdfInput.click();
     }
@@ -399,13 +419,9 @@ class FluxApp {
         e.target.value = "";
     }
 
-    // ADDED: Handle PDF Selection
     handlePdfUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
-        
-        // In the future we might want to read the binary data, but for now we just need the name
-        // and we create a placeholder box.
         this.whiteboard.addPDF(file.name);
         this.selectTool('select');
         e.target.value = "";
@@ -580,6 +596,59 @@ class FluxApp {
                 }
             });
             this.dom.libBoardList.appendChild(item);
+        });
+    }
+    
+    // ADDED: Logic to switch library views
+    switchLibraryView(mode) {
+        this.state.libraryMode = mode;
+        if (mode === 'boards') {
+            this.dom.libViewBoards.classList.remove('hidden');
+            this.dom.libViewPdfs.classList.add('hidden');
+            this.dom.libFooterBoards.classList.remove('hidden');
+            this.dom.libTitle.textContent = "Library";
+            this.dom.btnLibModeToggle.classList.remove('active');
+        } else {
+            this.dom.libViewBoards.classList.add('hidden');
+            this.dom.libViewPdfs.classList.remove('hidden');
+            this.dom.libFooterBoards.classList.add('hidden'); // Hide "New Board" button
+            this.dom.libTitle.textContent = "Documents";
+            this.dom.btnLibModeToggle.classList.add('active');
+            this.renderPDFLibrary();
+        }
+    }
+
+    // ADDED: Logic to render PDF list
+    renderPDFLibrary() {
+        this.dom.libPdfList.innerHTML = '';
+        if (!this.whiteboard) return;
+
+        const pdfs = this.whiteboard.elements.filter(el => el.type === 'pdf');
+        
+        if (pdfs.length === 0) {
+            this.dom.libPdfList.innerHTML = '<div class="empty-state">No PDFs in this board</div>';
+            return;
+        }
+
+        pdfs.forEach(pdf => {
+            const item = document.createElement('div');
+            item.className = 'library-item';
+            item.innerHTML = `
+                <div class="lib-item-info">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text-icon lucide-file-text"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+                    <span>${pdf.name}</span>
+                </div>
+            `;
+            // Simple click to center on element (Prototype)
+            item.addEventListener('click', () => {
+                if (this.whiteboard) {
+                    this.whiteboard.view.offsetX = window.innerWidth / 2 - (pdf.x + pdf.width/2) * this.whiteboard.view.scale;
+                    this.whiteboard.view.offsetY = window.innerHeight / 2 - (pdf.y + pdf.height/2) * this.whiteboard.view.scale;
+                    this.whiteboard.render();
+                    this.dom.libPopup.classList.add('hidden');
+                }
+            });
+            this.dom.libPdfList.appendChild(item);
         });
     }
 
