@@ -56,6 +56,8 @@ class FluxApp {
             gridToggle: document.getElementById('grid-toggle'),
             fileInput: document.getElementById('file-input'),
             imageInput: document.getElementById('image-input'),
+            // ADDED: PDF Input
+            pdfInput: document.getElementById('pdf-input'),
 
             btnColorPicker: document.getElementById('btn-color-picker'),
             btnFillPicker: document.getElementById('btn-fill-picker'),
@@ -186,10 +188,14 @@ class FluxApp {
             else if(t === 'text') this.createTextAction();
             else if(t === 'formula') this.createFormulaAction();
             else if(t === 'image') this.createImageAction();
+            // ADDED: Attachment tool trigger
+            else if(t === 'attachment') this.createAttachmentAction();
             else this.selectTool(t);
         }));
 
         this.dom.imageInput.addEventListener('change', (e) => this.handleImageUpload(e));
+        // ADDED: PDF handler
+        this.dom.pdfInput.addEventListener('change', (e) => this.handlePdfUpload(e));
 
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
         this.dom.btnColorPicker.addEventListener('click', () => { this.state.pickingMode = 'stroke'; document.getElementById('color-modal-title').textContent = 'Color'; this.dom.colorModal.classList.remove('hidden'); });
@@ -223,7 +229,9 @@ class FluxApp {
             localStorage.setItem('flux-theme', isL ? 'light' : 'dark'); 
             if(this.whiteboard) {
                 this.whiteboard.updateThemeColors(isL);
-                this.whiteboard.elements.forEach(el => { if(el.type === 'text') el.renderedImage = null; });
+                this.whiteboard.elements.forEach(el => { 
+                    if(el.type === 'text' || el.type === 'pdf') el.renderedImage = null; 
+                });
                 this.whiteboard.render();
             }
         });
@@ -241,7 +249,7 @@ class FluxApp {
                     if(color === 'auto') { el.fillColor = document.body.classList.contains('light-mode') ? '#1a1a1d' : '#ffffff'; el.isAutoFill = true; }
                     else { el.fillColor = color; el.isAutoFill = false; }
                 }
-                if (el.type === 'text') el.renderedImage = null;
+                if (el.type === 'text' || el.type === 'pdf') el.renderedImage = null;
             });
             this.dom.colorModal.classList.add('hidden');
         }));
@@ -374,6 +382,11 @@ class FluxApp {
         this.dom.imageInput.click();
     }
 
+    // ADDED: Logic for Attachment/PDF
+    createAttachmentAction() {
+        this.dom.pdfInput.click();
+    }
+
     handleImageUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
@@ -383,6 +396,18 @@ class FluxApp {
             this.selectTool('select');
         };
         reader.readAsDataURL(file);
+        e.target.value = "";
+    }
+
+    // ADDED: Handle PDF Selection
+    handlePdfUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // In the future we might want to read the binary data, but for now we just need the name
+        // and we create a placeholder box.
+        this.whiteboard.addPDF(file.name);
+        this.selectTool('select');
         e.target.value = "";
     }
 
@@ -498,21 +523,21 @@ class FluxApp {
             this.dom.editBar.classList.remove('hidden');
             if(sel.length === 1) {
                 const el = sel[0];
-                const isL = el.type === 'line', isS = el.type === 'shape', isT = el.type === 'text', isI = el.type === 'image';
+                const isL = el.type === 'line', isS = el.type === 'shape', isT = el.type === 'text', isI = el.type === 'image', isP = el.type === 'pdf';
                 this.dom.dividerTextActions.style.display = isT ? 'block' : 'none';
                 this.dom.groupTextActions.style.display = isT ? 'flex' : 'none';
-                document.getElementById('divider-stroke').style.display = (isT || isI) ? 'none' : 'block';
-                document.getElementById('group-stroke').style.display = (isT || isI) ? 'none' : 'flex';
-                document.getElementById('divider-style').style.display = (isT || isI) ? 'none' : 'block';
-                document.getElementById('group-style').style.display = (isT || isI) ? 'none' : 'flex';
+                document.getElementById('divider-stroke').style.display = (isT || isI || isP) ? 'none' : 'block';
+                document.getElementById('group-stroke').style.display = (isT || isI || isP) ? 'none' : 'flex';
+                document.getElementById('divider-style').style.display = (isT || isI || isP) ? 'none' : 'block';
+                document.getElementById('group-style').style.display = (isT || isI || isP) ? 'none' : 'flex';
                 document.getElementById('divider-arrows').style.display = isL ? 'block' : 'none';
                 document.getElementById('group-arrows').style.display = isL ? 'flex' : 'none';
                 this.dom.btnFillPicker.style.display = isS ? 'flex' : 'none';
                 this.dom.colorOptEmpty.style.display = isS ? 'flex' : 'none';
-                if(!isT && !isI) this.syncStrokeUI(el.strokeWidth || el.width || 3);
+                if(!isT && !isI && !isP) this.syncStrokeUI(el.strokeWidth || el.width || 3);
                 if(isS) this.syncPickerButtonAppearance(this.dom.btnFillPicker, el.fillColor, el.isAutoFill);
-                if(!isI) this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
-                else this.dom.btnColorPicker.style.display = 'none'; // Hide color picker for images
+                if(!isI && !isP) this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
+                else this.dom.btnColorPicker.style.display = 'none'; 
             }
         } else this.dom.editBar.classList.add('hidden');
     }

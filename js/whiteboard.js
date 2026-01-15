@@ -197,6 +197,25 @@ class FluxWhiteboard {
         if(window.flux) window.flux.updateEditBar();
     }
 
+    addPDF(fileName) {
+        this.saveHistory();
+        const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+        const newPDF = {
+            id: Date.now(),
+            type: 'pdf',
+            name: fileName,
+            x: center.x - 155, // 310 / 2
+            y: center.y - 45,  // Approx height / 2
+            width: 310,
+            height: 90, 
+            renderedImage: null
+        };
+        this.elements.push(newPDF);
+        this.interaction.selectedElements = [newPDF];
+        this.render();
+        if(window.flux) window.flux.updateEditBar();
+    }
+
     duplicateSelected() {
         this.saveHistory();
         const newSelected = [];
@@ -205,8 +224,8 @@ class FluxWhiteboard {
             const offset = 20 / this.view.scale;
             if (clone.type === 'line') { clone.p1.x += offset; clone.p1.y += offset; clone.p2.x += offset; clone.p2.y += offset; }
             else if (clone.type === 'pen') { clone.points.forEach(p => { p.x += offset; p.y += offset; }); }
-            else if (clone.type === 'shape' || clone.type === 'text' || clone.type === 'image') { clone.x += offset; clone.y += offset; }
-            if (clone.type === 'text') clone.renderedImage = null;
+            else if (clone.type === 'shape' || clone.type === 'text' || clone.type === 'image' || clone.type === 'pdf') { clone.x += offset; clone.y += offset; }
+            if (clone.type === 'text' || clone.type === 'pdf') clone.renderedImage = null;
             this.elements.push(clone); newSelected.push(clone);
         });
         this.interaction.selectedElements = newSelected; this.render();
@@ -339,7 +358,7 @@ class FluxWhiteboard {
             this.interaction.selectedElements.forEach(el => {
                 if (el.type === 'line') { el.p1.x += dx; el.p1.y += dy; el.p2.x += dx; el.p2.y += dy; }
                 else if (el.type === 'pen') { el.points.forEach(p => { p.x += dx; p.y += dy; }); }
-                else if (el.type === 'shape' || el.type === 'text' || el.type === 'image') { el.x += dx; el.y += dy; }
+                else if (el.type === 'shape' || el.type === 'text' || el.type === 'image' || el.type === 'pdf') { el.x += dx; el.y += dy; }
             });
             this.interaction.dragLastWorldPos = mouse; this.render(); return;
         }
@@ -358,7 +377,7 @@ class FluxWhiteboard {
 
     getElementHandles(el) {
         if (el.type === 'line') return [el.p1, el.p2];
-        if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
+        if (el.type === 'shape' || el.type === 'text' || el.type === 'image' || el.type === 'pdf') {
             const {x, y, width: w, height: h} = el;
             return [{x, y}, {x: x+w/2, y}, {x: x+w, y}, {x: x+w, y: y+h/2}, {x: x+w, y: y+h}, {x: x+w/2, y: y+h}, {x, y: y+h}, {x, y: y+h/2}];
         }
@@ -369,7 +388,7 @@ class FluxWhiteboard {
         if (el.renderedImage) el.renderedImage = null; 
         if (el.type === 'line') { const key = handleIdx === 0 ? 'p1' : 'p2'; el[key].x = mouse.x; el[key].y = mouse.y; return; }
         
-        if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
+        if (el.type === 'shape' || el.type === 'text' || el.type === 'image' || el.type === 'pdf') {
             const minSize = 20;
             const right = el.x + el.width;
             const bottom = el.y + el.height;
@@ -391,19 +410,27 @@ class FluxWhiteboard {
             // 2. Enforce Proportional scaling for corners
             // MODIFICA: Il testo non deve mantenere l'aspect ratio (per permettere reflow)
             // Le immagini e le shape mantengono il comportamento standard
-            if (isCorner && el.type !== 'text') {
+            // Per i PDF, permettiamo il ridimensionamento libero ma se è un angolo spesso è preferibile mantenere l'aspect ratio
+            // Tuttavia il prompt dice "ridimensionabile con maniglie", trattiamolo come una shape generica.
+            if (isCorner && el.type !== 'text' && el.type !== 'pdf') {
                 if (el.width / ratio > el.height) el.height = el.width / ratio;
                 else el.width = el.height * ratio;
+            }
+            
+            // For images, we strictly enforce ratio on all corners
+            if (isCorner && el.type === 'image') {
+                 if (el.width / ratio > el.height) el.height = el.width / ratio;
+                 else el.width = el.height * ratio;
             }
 
             // 3. Prevent going below minSize
             if (el.width < minSize) { 
                 el.width = minSize; 
-                if (isCorner && el.type !== 'text') el.height = el.width / ratio; 
+                if (isCorner && el.type !== 'text' && el.type !== 'pdf') el.height = el.width / ratio; 
             }
             if (el.height < minSize) { 
                 el.height = minSize; 
-                if (isCorner && el.type !== 'text') el.width = el.height * ratio; 
+                if (isCorner && el.type !== 'text' && el.type !== 'pdf') el.width = el.height * ratio; 
             }
 
             // 4. Reposition based on anchor
@@ -412,8 +439,6 @@ class FluxWhiteboard {
             else if (handleIdx === 2) { el.y = bottom - el.height; }
             else if (handleIdx === 6) { el.x = right - el.width; }
             else if (handleIdx === 7) { el.x = right - el.width; }
-
-            // MODIFICA: Rimosso blocco che aggiornava el.fontSize
         }
     }
 
@@ -423,7 +448,7 @@ class FluxWhiteboard {
             if (el.type === 'line') return this.getDistPointToSegment(p, el.p1, el.p2) * this.view.scale < effectiveHitThreshold;
             return el.points.some((pt, idx) => idx < el.points.length - 1 && this.getDistPointToSegment(p, pt, el.points[idx+1]) * this.view.scale < effectiveHitThreshold);
         }
-        if (el.type === 'shape' || el.type === 'text' || el.type === 'image') return p.x >= el.x && p.x <= el.x + el.width && p.y >= el.y && p.y <= el.y + el.height;
+        if (el.type === 'shape' || el.type === 'text' || el.type === 'image' || el.type === 'pdf') return p.x >= el.x && p.x <= el.x + el.width && p.y >= el.y && p.y <= el.y + el.height;
         return false;
     }
 
@@ -434,7 +459,7 @@ class FluxWhiteboard {
         this.interaction.selectedElements = this.elements.filter(el => {
             if (el.type === 'line') return el.p1.x >= x1 && el.p1.x <= x2 && el.p1.y >= y1 && el.p1.y <= y2;
             if (el.type === 'pen') return el.points.some(p => p.x >= x1 && p.x <= x2 && p.y >= y1 && p.y <= y2);
-            if (el.type === 'shape' || el.type === 'text' || el.type === 'image') return el.x >= x1 && el.x + el.width <= x2 && el.y >= y1 && el.y + el.height <= y2;
+            if (el.type === 'shape' || el.type === 'text' || el.type === 'image' || el.type === 'pdf') return el.x >= x1 && el.x + el.width <= x2 && el.y >= y1 && el.y + el.height <= y2;
             return false;
         });
     }
@@ -537,14 +562,15 @@ class FluxWhiteboard {
                 this.drawTextElement(el, isSelected);
             } else if (el.type === 'image') {
                 this.drawImageElement(el, isSelected);
+            } else if (el.type === 'pdf') {
+                this.drawPDFElement(el, isSelected);
             }
             this.ctx.restore();
         });
     }
 
     /**
-     * @method drawTextElement
-     * @description Renders Markdown/LaTeX content via SVG ForeignObject logic.
+     * @method drawImageElement
      */
     drawImageElement(el, isSelected) {
         const sPos = this.worldToScreen(el.x, el.y);
@@ -554,7 +580,6 @@ class FluxWhiteboard {
         if (el.imgObj) {
             this.ctx.drawImage(el.imgObj, sPos.x, sPos.y, sW, sH);
         } else {
-            // Lazy load the image object if missing (e.g. after loading from JSON)
             const img = new Image();
             img.onload = () => { el.imgObj = img; this.render(); };
             img.src = el.src;
@@ -571,6 +596,119 @@ class FluxWhiteboard {
                 this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color'));
             });
         }
+    }
+
+    /**
+     * @method drawPDFElement
+     */
+    drawPDFElement(el, isSelected) {
+        const sPos = this.worldToScreen(el.x, el.y);
+        const sW = el.width * this.view.scale;
+        const sH = el.height * this.view.scale;
+
+        if (el.renderedImage) {
+            this.ctx.drawImage(el.renderedImage, sPos.x, sPos.y, sW, sH);
+        } else {
+            this.renderPDFToImage(el);
+        }
+
+        if (isSelected) {
+            this.ctx.lineWidth = 1;
+            this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color');
+            this.ctx.setLineDash([5, 5]);
+            this.ctx.strokeRect(sPos.x, sPos.y, sW, sH);
+            this.ctx.setLineDash([]);
+            this.getElementHandles(el).forEach(h => {
+                const sh = this.worldToScreen(h.x, h.y);
+                this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color'));
+            });
+        }
+    }
+
+    /**
+     * @method renderPDFToImage
+     * @description Creates a DOM-like image for the PDF box using foreignObject
+     */
+    renderPDFToImage(el) {
+        if (el.isRendering) return;
+        el.isRendering = true;
+
+        const fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        const isLight = document.body.classList.contains('light-mode');
+        
+        // Colors derived from main CSS logic but inline for SVG
+        const bgColor = isLight ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.03)";
+        const borderColor = isLight ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.1)";
+        const textColor = isLight ? "#1a1a1d" : "#ffffff";
+        const btnColor = isLight ? "#1a1a1d" : "#ffffff";
+        const accentColor = isLight ? "#007aff" : "#00d2ff";
+
+        const svgString = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${el.width}" height="${el.height}">
+            <foreignObject width="100%" height="100%">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="
+                    font-family: ${fontFamily};
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
+                    background: ${bgColor};
+                    border: 1px solid ${borderColor};
+                    border-radius: 18px;
+                    padding: 12px 16px;
+                    box-sizing: border-box;
+                    gap: 14px;
+                    overflow: hidden;
+                ">
+                    <style>
+                        .icon-wrapper {
+                            display: flex; align-items: center; justify-content: center;
+                            background: transparent; height: 100%; width: 40px;
+                            flex-shrink: 0; color: ${textColor};
+                        }
+                        .content {
+                            display: flex; flex-direction: column; justify-content: center;
+                            gap: 7px; overflow: hidden; flex: 1;
+                        }
+                        .title {
+                            color: ${textColor}; font-size: 14px; font-weight: 500;
+                            margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                        }
+                        .btn {
+                            background: transparent; color: ${btnColor};
+                            border: 1px solid ${isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
+                            border-radius: 8px; padding: 6px 16px;
+                            font-size: 11px; font-weight: 600; text-transform: uppercase;
+                            letter-spacing: 0.6px; width: fit-content;
+                        }
+                    </style>
+                    <div class="icon-wrapper">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
+                            <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
+                            <path d="M10 9H8"/>
+                            <path d="M16 13H8"/>
+                            <path d="M16 17H8"/>
+                        </svg>
+                    </div>
+                    <div class="content">
+                        <div class="title">${el.name}</div>
+                        <div class="btn">Preview</div>
+                    </div>
+                </div>
+            </foreignObject>
+        </svg>`;
+
+        const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            el.renderedImage = img;
+            el.isRendering = false;
+            URL.revokeObjectURL(url);
+            this.render();
+        };
+        img.src = url;
     }
 
     drawTextElement(el, isSelected) {
@@ -617,22 +755,10 @@ class FluxWhiteboard {
             });
         }
 
-        // Construct SVG data
-        // We embed standard CSS fonts to ensure it looks right inside the Canvas
         const fontSize = el.fontSize;
         const color = el.color;
-        
-        // Include KaTeX CSS (basic subset needed for layout) if Math is used, 
-        // but for a robust solution in a single file, we often rely on the fact 
-        // that foreignObject runs in the browser context. 
-        // HOWEVER, Canvas 'drawImage' with SVG acts more secure. 
-        // External stylesheets (CDN) inside standard IMG tags might be blocked by CORS or security policies.
-        // We will try to inject basic styles inline.
-
         const computedStyle = getComputedStyle(document.body);
         const fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-        
-        // Inject the full KaTeX CSS fetched in app.js + overrides
         const katexCSS = (window.flux && window.flux.katexStyles) ? window.flux.katexStyles : "";
 
         const svgString = `
