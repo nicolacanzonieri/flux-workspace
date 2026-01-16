@@ -14,20 +14,24 @@
     <link rel="manifest" href="manifest.json"/>
     <link rel="stylesheet" href="style.css"/>
 
-    <!-- External Libraries for Markdown & LaTeX Rendering -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- LOCAL External Libraries -->
+    
+    <!-- KaTeX for LaTeX Rendering -->
+    <link rel="stylesheet" href="lib/katex/katex.min.css">
+    <script src="lib/katex/katex.min.js"></script>
+    
+    <!-- Marked for Markdown Rendering -->
+    <script src="lib/marked/marked.min.js"></script>
     
     <!-- PDF.js for Document Rendering -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="lib/pdfjs/pdf.min.js"></script>
     <script>
-        // Initialize PDF.js worker
-        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        // Initialize PDF.js worker from local file
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdfjs/pdf.worker.min.js';
     </script>
 
     <!-- JSZip for Exporting/Importing Projects -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="lib/jszip/jszip.min.js"></script>
 
     <title>Flux</title>
 </head>
@@ -99,21 +103,16 @@
                     </button>
                 </div>
                 <div class="library-content">
-                    
-                    <!-- BOARDS VIEW -->
                     <div id="lib-view-boards" class="library-section">
                         <small class="section-label">Boards</small>
                         <div id="library-board-list" class="library-list"></div>
                     </div>
-
-                    <!-- DOCUMENTS VIEW (Initially Hidden) -->
                     <div id="lib-view-pdfs" class="library-section hidden">
                         <small class="section-label">Documents</small>
                         <div id="library-pdf-list" class="library-list">
                             <div class="empty-state">No PDFs in this board</div>
                         </div>
                     </div>
-
                 </div>
                 <div class="library-footer" id="lib-footer-boards">
                     <button id="btn-lib-new-board" class="lib-action-btn">
@@ -174,6 +173,7 @@
 
         <!-- MARKDOWN EDITOR OVERLAY -->
         <div id="markdown-editor-overlay" class="editor-overlay hidden">
+            <!-- (Contenuto editor...) -->
             <div class="editor-header">
                 <span class="editor-title">Markdown Editor</span>
                 <button id="btn-close-editor" class="tool-btn text-btn">Done</button>
@@ -195,6 +195,7 @@
 
         <!-- FORMULA EDITOR OVERLAY -->
         <div id="formula-editor-overlay" class="editor-overlay hidden">
+            <!-- (Contenuto formula...) -->
             <div class="editor-header">
                 <span class="editor-title">LaTeX Equation Editor</span>
                 <button id="btn-close-formula" class="tool-btn text-btn">Done</button>
@@ -226,6 +227,7 @@
 
         <!-- EDITING TOOLBAR -->
         <div id="edit-bar" class="edit-toolbar hidden">
+            <!-- (Contenuto toolbar edit...) -->
             <div class="toolbar-scroll-container">
                 <div class="edit-group">
                     <button id="btn-color-picker" class="color-dot auto" title="Color"></button>
@@ -282,6 +284,7 @@
 
         <!-- BOTTOM TOOLBAR -->
         <div id="toolbar" class="bottom-toolbar hidden">
+            <!-- (Contenuto toolbar strumenti...) -->
             <div class="toolbar-scroll-container">
                 <button class="tool-btn active" data-tool="select" title="Select">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"/></svg>
@@ -315,8 +318,10 @@
             </div>
         </div>
 
-        <!-- SETTINGS MODAL -->
+        <!-- SETTINGS MODAL & OTHERS ... -->
+        <!-- (Il resto del modal e canvas rimangono uguali) -->
         <div id="settings-modal" class="modal-overlay hidden">
+            <!-- (Contenuto Settings Modal) -->
             <div class="modal-content">
                 <div class="modal-header">
                     <h2>Settings</h2>
@@ -360,8 +365,8 @@
             </div>
         </div>
 
-        <!-- COLOR SELECTOR MODAL -->
         <div id="color-modal" class="modal-overlay hidden">
+            <!-- (Contenuto Color Modal) -->
             <div class="modal-content small-modal">
                 <div class="modal-header">
                     <h2 id="color-modal-title">Color</h2>
@@ -397,8 +402,8 @@
             </div>
         </div>
 
-        <!-- STROKE WIDTH MODAL -->
         <div id="stroke-modal" class="modal-overlay hidden">
+            <!-- (Contenuto Stroke Modal) -->
             <div class="modal-content small-modal">
                 <div class="modal-header">
                     <h2>Thickness</h2>
@@ -417,8 +422,8 @@
             </div>
         </div>
 
-        <!-- SHAPES MODAL -->
         <div id="shapes-modal" class="modal-overlay hidden">
+            <!-- (Contenuto Shapes Modal) -->
             <div class="modal-content small-modal">
                 <div class="modal-header">
                     <h2>Add Shape</h2>

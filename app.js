@@ -126,7 +126,7 @@ class FluxApp {
 
     async loadExternalStyles() {
         try {
-            const response = await fetch('https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css');
+            const response = await fetch('lib/katex/katex.min.css');
             if (response.ok) {
                 this.katexStyles = await response.text();
             }
@@ -388,6 +388,7 @@ class FluxApp {
 
         try {
             const zip = new JSZip();
+            // Data is already Base64 in this.project, so we just save the JSON
             const projectData = JSON.stringify(this.project, null, 2);
             const safeName = (this.project.name || "flux-project").replace(/[^a-z0-9]/gi, '_').toLowerCase();
             
@@ -423,6 +424,7 @@ class FluxApp {
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (event) => {
+            // event.target.result is the Base64 Data URL
             this.whiteboard.addImage(event.target.result);
             this.selectTool('select');
         };
@@ -436,6 +438,7 @@ class FluxApp {
         
         const reader = new FileReader();
         reader.onload = (event) => {
+            // event.target.result is the Base64 Data URL
             this.whiteboard.addPDF(file.name, event.target.result);
             this.selectTool('select');
         };
