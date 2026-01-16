@@ -66,7 +66,6 @@ class FluxWhiteboard {
             const copy = { ...el };
             if (copy.renderedImage) delete copy.renderedImage;
             if (copy.imgObj) delete copy.imgObj; 
-            // Assets (src) should be Base64 strings to persist
             return copy;
         });
 
@@ -332,8 +331,6 @@ class FluxWhiteboard {
                 if (this.isPointInElement(mouse, el)) {
                     // PDF Preview Button Click Detection
                     if (el.type === 'pdf') {
-                        // Correct Hit Box for "Preview" button
-                        // Based on SVG Layout:
                         const btnXStart = el.x + (el.width * 0.20);
                         const btnXEnd = el.x + (el.width * 0.60);
                         const btnYStart = el.y + (el.height * 0.45);
@@ -781,6 +778,96 @@ class FluxWhiteboard {
             URL.revokeObjectURL(url);
             this.render();
         };
+        img.src = url;
+    }
+
+    drawTextElement(el, isSelected) {
+        const sPos = this.worldToScreen(el.x, el.y);
+        const sW = el.width * this.view.scale;
+        const sH = el.height * this.view.scale;
+        
+        // Draw selection box first (if selected)
+        if (isSelected) { 
+            this.ctx.lineWidth = 1; 
+            this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color'); 
+            this.ctx.setLineDash([5, 5]); 
+            this.ctx.strokeRect(sPos.x, sPos.y, sW, sH); 
+            this.ctx.setLineDash([]); 
+            this.getElementHandles(el).forEach(h => { 
+                const sh = this.worldToScreen(h.x, h.y); 
+                this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color')); 
+            });
+        }
+        if (el.renderedImage) {
+            this.ctx.drawImage(el.renderedImage, sPos.x, sPos.y, sW, sH);
+        } else {
+            this.renderMarkdownToImage(el);
+        }
+    }
+
+    /**
+     * @method renderMarkdownToImage
+     * @description Converts Markdown+LaTeX to an SVG Image object and caches it on the element.
+     */
+    renderMarkdownToImage(el) {
+        if (el.isRendering) return;
+        el.isRendering = true;
+        let htmlContent = "";
+        if (window.marked) htmlContent = window.marked.parse(el.content);
+        else htmlContent = `<p>${el.content}</p>`;
+
+        if (window.katex) {
+            htmlContent = htmlContent.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
+                try { return window.katex.renderToString(tex, { displayMode: true, throwOnError: false }); } catch(e){ return match; }
+            });
+            htmlContent = htmlContent.replace(/\$([^\$\n]+?)\$/g, (match, tex) => {
+                try { return window.katex.renderToString(tex, { displayMode: false, throwOnError: false }); } catch(e){ return match; }
+            });
+        }
+
+        const fontSize = el.fontSize;
+        const color = el.color;
+        const computedStyle = getComputedStyle(document.body);
+        const fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
+        const katexCSS = (window.flux && window.flux.katexStyles) ? window.flux.katexStyles : "";
+
+        const svgString = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="${el.width}" height="${el.height}">
+            <foreignObject width="100%" height="100%">
+                <div xmlns="http://www.w3.org/1999/xhtml" style="
+                    font-family: ${fontFamily};
+                    font-size: ${fontSize}px;
+                    color: ${color};
+                    width: 100%;
+                    height: 100%;
+                    overflow: hidden;
+                    word-wrap: break-word;
+                ">
+                    <style>
+                        ${katexCSS}
+                        p { margin: 0 0 0.5em 0; }
+                        h1, h2, h3 { margin: 0 0 0.5em 0; font-weight: 600; line-height: 1.2; }
+                        h1 { font-size: 1.5em; } h2 { font-size: 1.3em; } h3 { font-size: 1.1em; }
+                        ul, ol { margin: 0 0 0.5em 0; padding-left: 1.2em; }
+                        blockquote { border-left: 3px solid ${color}; padding-left: 10px; opacity: 0.8; margin: 0; }
+                        code { background: rgba(127,127,127,0.2); padding: 2px 4px; border-radius: 3px; font-family: monospace; }
+                        .katex-mathml { display: none !important; }
+                    </style>
+                    ${htmlContent}
+                </div>
+            </foreignObject>
+        </svg>`;
+
+        const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            el.renderedImage = img;
+            el.isRendering = false;
+            URL.revokeObjectURL(url);
+            this.render();
+        };
+        img.onerror = () => { el.isRendering = false; };
         img.src = url;
     }
 

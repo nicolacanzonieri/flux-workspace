@@ -27,7 +27,7 @@ class FluxApp {
             libBoardList: document.getElementById('library-board-list'),
             btnLibNewBoard: document.getElementById('btn-lib-new-board'),
             
-            // ADDED: Library Views & Toggle
+            // Library Views & Toggle
             btnLibModeToggle: document.getElementById('btn-lib-mode-toggle'),
             libViewBoards: document.getElementById('lib-view-boards'),
             libViewPdfs: document.getElementById('lib-view-pdfs'),
@@ -99,7 +99,6 @@ class FluxApp {
             pickingMode: 'stroke',
             activeBoardId: null,
             editingElementId: null,
-            // ADDED: Track library view mode
             libraryMode: 'boards' // 'boards' or 'pdfs'
         };
 
@@ -113,15 +112,13 @@ class FluxApp {
         
         this.katexStyles = "";
         this.whiteboard = null;
-        this.pdfViewer = null; // Initialize PDF Viewer holder
+        this.pdfViewer = null; 
         this.init();
     }
 
     async init() {
         this.loadExternalStyles();
-        // Initialize Whiteboard
         if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
-        // Initialize PDF Viewer
         if(typeof FluxPdfViewer !== 'undefined') this.pdfViewer = new FluxPdfViewer();
         
         this.loadSettings(); this.revealApplication(); this.bindEvents();
@@ -186,7 +183,6 @@ class FluxApp {
         this.dom.btnLibToggle.addEventListener('click', (e) => { 
             e.stopPropagation(); 
             this.dom.libPopup.classList.toggle('hidden');
-            // Reset to boards view when opening
             if (!this.dom.libPopup.classList.contains('hidden')) {
                 this.switchLibraryView('boards');
             }
@@ -195,7 +191,6 @@ class FluxApp {
         window.addEventListener('click', () => this.dom.libPopup.classList.add('hidden'));
         this.dom.libPopup.addEventListener('click', (e) => e.stopPropagation());
         
-        // ADDED: Library View Toggle
         this.dom.btnLibModeToggle.addEventListener('click', () => {
             const newMode = this.state.libraryMode === 'boards' ? 'pdfs' : 'boards';
             this.switchLibraryView(newMode);
@@ -393,7 +388,6 @@ class FluxApp {
 
         try {
             const zip = new JSZip();
-            // Data is already Base64 in this.project, so we just save the JSON
             const projectData = JSON.stringify(this.project, null, 2);
             const safeName = (this.project.name || "flux-project").replace(/[^a-z0-9]/gi, '_').toLowerCase();
             
@@ -429,7 +423,6 @@ class FluxApp {
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (event) => {
-            // event.target.result is the Base64 Data URL
             this.whiteboard.addImage(event.target.result);
             this.selectTool('select');
         };
@@ -443,7 +436,6 @@ class FluxApp {
         
         const reader = new FileReader();
         reader.onload = (event) => {
-            // event.target.result is the Base64 Data URL
             this.whiteboard.addPDF(file.name, event.target.result);
             this.selectTool('select');
         };
@@ -582,8 +574,16 @@ class FluxApp {
         } else this.dom.editBar.classList.add('hidden');
     }
 
+    // Methods for tools
     createLineAction() { if(this.whiteboard){ const isL = document.body.classList.contains('light-mode'); this.whiteboard.addLine(isL ? '#1a1a1d' : '#ffffff'); this.selectTool('select'); } }
-    createTextAction() { if(this.whiteboard){ const isL = document.body.classList.contains('light-mode'); this.whiteboard.addText(isL ? '#1a1a1d' : '#ffffff'); this.selectTool('select'); } }
+    
+    createTextAction() { 
+        if(this.whiteboard){ 
+            const isL = document.body.classList.contains('light-mode'); 
+            this.whiteboard.addText(isL ? '#1a1a1d' : '#ffffff'); 
+            this.selectTool('select'); 
+        } 
+    }
 
     renderLibrary() {
         this.dom.libBoardList.innerHTML = '';
@@ -623,7 +623,6 @@ class FluxApp {
         });
     }
     
-    // ADDED: Logic to switch library views
     switchLibraryView(mode) {
         this.state.libraryMode = mode;
         if (mode === 'boards') {
@@ -642,7 +641,6 @@ class FluxApp {
         }
     }
 
-    // ADDED: Logic to render PDF list
     renderPDFLibrary() {
         this.dom.libPdfList.innerHTML = '';
         if (!this.whiteboard) return;
@@ -663,7 +661,6 @@ class FluxApp {
                     <span>${pdf.name}</span>
                 </div>
             `;
-            // Simple click to center on element (Prototype)
             item.addEventListener('click', () => {
                 if (this.whiteboard) {
                     this.whiteboard.view.offsetX = window.innerWidth / 2 - (pdf.x + pdf.width/2) * this.whiteboard.view.scale;
