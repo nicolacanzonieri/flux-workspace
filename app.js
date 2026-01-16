@@ -117,14 +117,11 @@ class FluxApp {
     }
 
     async init() {
-        await this.loadExternalStyles();
-        
+        this.loadExternalStyles();
         if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
         if(typeof FluxPdfViewer !== 'undefined') this.pdfViewer = new FluxPdfViewer();
         
-        this.loadSettings(); 
-        this.revealApplication(); 
-        this.bindEvents();
+        this.loadSettings(); this.revealApplication(); this.bindEvents();
     }
 
     async loadExternalStyles() {
@@ -132,12 +129,9 @@ class FluxApp {
             const response = await fetch('lib/katex/katex.min.css');
             if (response.ok) {
                 this.katexStyles = await response.text();
-            } else {
-                console.warn("Flux: KaTeX CSS response not OK. Formulas may look unstyled on canvas.");
             }
         } catch (e) {
-            console.warn("Flux: Failed to load KaTeX styles via fetch. If you are using file:// protocol, this is expected. Formulas will appear on the canvas but might lack proper styling. Please run a local server (python3 -m http.server) to fix this.", e);
-            // We do NOT throw here, allowing the app to continue loading
+            console.warn("Flux: Failed to load KaTeX styles.", e);
         }
     }
 
@@ -729,11 +723,16 @@ class FluxApp {
         this.dom.toolbar.classList.add('hidden'); 
         this.dom.editBar.classList.add('hidden'); 
         this.dom.btnHome.classList.add('hidden');
-        this.dom.btnSave.classList.add('hidden'); // Hide Save Button
+        this.dom.btnSave.classList.add('hidden'); // Show Save Button
         this.dom.libNav.classList.add('hidden'); 
         this.state.boardActive = false; 
         this.dom.menu.classList.remove('hidden'); 
         this.renderLibrary();
+        
+        // ADDED: Close PDF viewer if open or minimized
+        if (this.pdfViewer) {
+            this.pdfViewer.close();
+        }
     }
 
     async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of names) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
