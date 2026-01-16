@@ -250,12 +250,9 @@ class FluxApp {
              }
         });
 
-        // ADDED: Listener for PDF Preview Button Click
         this.dom.canvas.addEventListener('flux-pdf-preview', (e) => {
             const el = e.detail.element;
             if (el && el.type === 'pdf' && this.pdfViewer) {
-                // Determine if src is a URL or Base64 (simple check)
-                // For this implementation, we rely on the Blob URL stored in el.src
                 if (el.src) {
                     this.pdfViewer.open(el.src, el.name);
                 } else {
@@ -396,6 +393,7 @@ class FluxApp {
 
         try {
             const zip = new JSZip();
+            // Data is already Base64 in this.project, so we just save the JSON
             const projectData = JSON.stringify(this.project, null, 2);
             const safeName = (this.project.name || "flux-project").replace(/[^a-z0-9]/gi, '_').toLowerCase();
             
@@ -431,6 +429,7 @@ class FluxApp {
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (event) => {
+            // event.target.result is the Base64 Data URL
             this.whiteboard.addImage(event.target.result);
             this.selectTool('select');
         };
@@ -441,10 +440,14 @@ class FluxApp {
     handlePdfUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
-        // Create Blob URL for internal usage (Note: This URL is valid only for the current session)
-        const fileUrl = URL.createObjectURL(file);
-        this.whiteboard.addPDF(file.name, fileUrl);
-        this.selectTool('select');
+        
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            // event.target.result is the Base64 Data URL
+            this.whiteboard.addPDF(file.name, event.target.result);
+            this.selectTool('select');
+        };
+        reader.readAsDataURL(file);
         e.target.value = "";
     }
 

@@ -66,6 +66,7 @@ class FluxWhiteboard {
             const copy = { ...el };
             if (copy.renderedImage) delete copy.renderedImage;
             if (copy.imgObj) delete copy.imgObj; 
+            // Assets (src) should be Base64 strings to persist
             return copy;
         });
 
@@ -200,7 +201,7 @@ class FluxWhiteboard {
     /**
      * @method addPDF
      * @param {string} fileName - Name of the PDF file
-     * @param {string} fileUrl - Blob URL of the PDF file data
+     * @param {string} fileUrl - Base64 or Blob URL of the PDF file data
      */
     addPDF(fileName, fileUrl) {
         this.saveHistory();
@@ -333,10 +334,6 @@ class FluxWhiteboard {
                     if (el.type === 'pdf') {
                         // Correct Hit Box for "Preview" button
                         // Based on SVG Layout:
-                        // Left padding(16) + Icon(40) + Gap(14) = 70px start.
-                        // Base Width 310. Start% = 70/310 = ~0.22.
-                        // Button is roughly ~80-100px wide. End% = ~0.55.
-                        // Vertically, content is centered. Button is in bottom half.
                         const btnXStart = el.x + (el.width * 0.20);
                         const btnXEnd = el.x + (el.width * 0.60);
                         const btnYStart = el.y + (el.height * 0.45);
