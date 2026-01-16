@@ -15,22 +15,13 @@
     <link rel="stylesheet" href="style.css"/>
 
     <!-- LOCAL External Libraries -->
-    
-    <!-- KaTeX for LaTeX Rendering -->
     <link rel="stylesheet" href="lib/katex/katex.min.css">
     <script src="lib/katex/katex.min.js"></script>
-    
-    <!-- Marked for Markdown Rendering -->
     <script src="lib/marked/marked.min.js"></script>
-    
-    <!-- PDF.js for Document Rendering -->
     <script src="lib/pdfjs/pdf.min.js"></script>
     <script>
-        // Initialize PDF.js worker from local file
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdfjs/pdf.worker.min.js';
     </script>
-
-    <!-- JSZip for Exporting/Importing Projects -->
     <script src="lib/jszip/jszip.min.js"></script>
 
     <title>Flux</title>
@@ -54,7 +45,6 @@
             </button>
             <div class="nav-separator"></div>
             
-            <!-- SAVE BUTTON (Hidden by default, visible only in project) -->
             <button id="btn-save-project" class="icon-btn hidden" aria-label="Save Project">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -94,8 +84,9 @@
                 </button>
             </div>
 
-            <!-- LIBRARY POPUP WINDOW -->
+            <!-- LIBRARY POPUP -->
             <div id="library-popup" class="library-popup hidden">
+                <!-- (Contenuto Library invariato) -->
                 <div class="library-header">
                     <h3 id="library-title">Library</h3>
                     <button id="btn-lib-mode-toggle" class="lib-header-btn" title="Toggle Documents">
@@ -123,14 +114,28 @@
             </div>
         </div>
 
+        <!-- NEW: PDF MINIMIZED PILL -->
+        <!-- Posizionato centralmente in alto -->
+        <div id="pdf-minimized-pill" class="pdf-pill hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text-icon lucide-file-text"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
+            <span id="pdf-pill-title" class="pill-text">Document.pdf</span>
+        </div>
+
         <!-- PDF VIEWER OVERLAY -->
         <div id="pdf-viewer-overlay" class="pdf-overlay hidden">
             <div class="pdf-header">
                 <span id="pdf-viewer-title" class="pdf-title">Document.pdf</span>
-                <div class="pdf-pagination">
+                <div class="pdf-pagination-container">
                     <span id="pdf-page-indicator">1 / 1</span>
                 </div>
-                <button id="btn-close-pdf" class="close-btn small">×</button>
+                <div class="pdf-window-controls">
+                    <button id="btn-minimize-pdf" class="icon-btn pdf-control-btn" title="Minimize">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-minus-icon lucide-minus"><path d="M5 12h14"/></svg>
+                    </button>
+                    <button id="btn-close-pdf" class="icon-btn pdf-control-btn" title="Close">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
             </div>
             
             <div class="pdf-container">
@@ -150,6 +155,7 @@
 
         <!-- HOME MENU -->
         <div id="home-menu" class="menu-container">
+            <!-- (Contenuto Home Menu invariato) -->
             <h1 id="main-title" class="app-title initial-center">Flux</h1>
             <div id="menu-content" class="fade-content invisible">
                 <p class="app-subtitle">Digital Workspace</p>
@@ -171,9 +177,9 @@
             <input type="file" id="file-input" accept=".json,.flux,.zip" style="display: none;" />
         </div>
 
-        <!-- MARKDOWN EDITOR OVERLAY -->
+        <!-- EDITOR OVERLAYS (MARKDOWN, FORMULA) -->
         <div id="markdown-editor-overlay" class="editor-overlay hidden">
-            <!-- (Contenuto editor...) -->
+            <!-- ... (Content unchanged) ... -->
             <div class="editor-header">
                 <span class="editor-title">Markdown Editor</span>
                 <button id="btn-close-editor" class="tool-btn text-btn">Done</button>
@@ -193,9 +199,8 @@
             </div>
         </div>
 
-        <!-- FORMULA EDITOR OVERLAY -->
         <div id="formula-editor-overlay" class="editor-overlay hidden">
-            <!-- (Contenuto formula...) -->
+            <!-- ... (Content unchanged) ... -->
             <div class="editor-header">
                 <span class="editor-title">LaTeX Equation Editor</span>
                 <button id="btn-close-formula" class="tool-btn text-btn">Done</button>
@@ -227,7 +232,7 @@
 
         <!-- EDITING TOOLBAR -->
         <div id="edit-bar" class="edit-toolbar hidden">
-            <!-- (Contenuto toolbar edit...) -->
+            <!-- ... (Content unchanged) ... -->
             <div class="toolbar-scroll-container">
                 <div class="edit-group">
                     <button id="btn-color-picker" class="color-dot auto" title="Color"></button>
@@ -284,7 +289,7 @@
 
         <!-- BOTTOM TOOLBAR -->
         <div id="toolbar" class="bottom-toolbar hidden">
-            <!-- (Contenuto toolbar strumenti...) -->
+            <!-- ... (Content unchanged) ... -->
             <div class="toolbar-scroll-container">
                 <button class="tool-btn active" data-tool="select" title="Select">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"/></svg>
@@ -318,8 +323,7 @@
             </div>
         </div>
 
-        <!-- SETTINGS MODAL & OTHERS ... -->
-        <!-- (Il resto del modal e canvas rimangono uguali) -->
+        <!-- SETTINGS, COLOR, STROKE, SHAPES MODALS (Unchanged) -->
         <div id="settings-modal" class="modal-overlay hidden">
             <!-- (Contenuto Settings Modal) -->
             <div class="modal-content">

@@ -1,6 +1,7 @@
 /**
  * @file pdf-viewer.js
  * @description Handles PDF rendering with "Fit to Screen" logic, boundary clamping, and smooth gestures.
+ * Optimised sensitivity for snappy interactions.
  */
 class FluxPdfViewer {
     constructor() {
@@ -13,14 +14,20 @@ class FluxPdfViewer {
             title: document.getElementById('pdf-viewer-title'),
             indicator: document.getElementById('pdf-page-indicator'),
             btnClose: document.getElementById('btn-close-pdf'),
+            btnMinimize: document.getElementById('btn-minimize-pdf'),
             btnPrev: document.getElementById('btn-pdf-prev'),
-            btnNext: document.getElementById('btn-pdf-next')
+            btnNext: document.getElementById('btn-pdf-next'),
+            
+            // New Pill Elements
+            pill: document.getElementById('pdf-minimized-pill'),
+            pillTitle: document.getElementById('pdf-pill-title')
         };
         
         this.pdfDoc = null;
         this.pageNum = 1;
         this.pageRendering = false;
         this.pageNumPending = null;
+        this.fileName = "Document.pdf";
 
         // View State
         this.state = {
@@ -39,7 +46,11 @@ class FluxPdfViewer {
             
             // Base dimensions of the unscaled PDF page
             baseWidth: 0,
-            baseHeight: 0
+            baseHeight: 0,
+
+            // Balanced sensitivity settings
+            zoomSensitivity: 0.008, 
+            panSensitivity: 1.1
         };
 
         this.init();
@@ -47,6 +58,9 @@ class FluxPdfViewer {
 
     init() {
         this.dom.btnClose.addEventListener('click', () => this.close());
+        this.dom.btnMinimize.addEventListener('click', () => this.minimize());
+        this.dom.pill.addEventListener('click', () => this.restore());
+        
         this.dom.btnPrev.addEventListener('click', () => this.onPrevPage());
         this.dom.btnNext.addEventListener('click', () => this.onNextPage());
         
@@ -72,7 +86,12 @@ class FluxPdfViewer {
     }
 
     async open(url, name) {
-        this.dom.title.textContent = name || "Document.pdf";
+        this.fileName = name || "Document.pdf";
+        this.dom.title.textContent = this.fileName;
+        this.dom.pillTitle.textContent = this.fileName;
+        
+        // Ensure pill is hidden when opening fresh
+        this.dom.pill.classList.add('hidden');
         this.dom.overlay.classList.remove('hidden');
         
         // Reset state before loading
@@ -93,8 +112,19 @@ class FluxPdfViewer {
 
     close() {
         this.dom.overlay.classList.add('hidden');
+        this.dom.pill.classList.add('hidden');
         this.pdfDoc = null;
         this.dom.ctx.clearRect(0, 0, this.dom.canvas.width, this.dom.canvas.height);
+    }
+
+    minimize() {
+        this.dom.overlay.classList.add('hidden');
+        this.dom.pill.classList.remove('hidden');
+    }
+
+    restore() {
+        this.dom.pill.classList.add('hidden');
+        this.dom.overlay.classList.remove('hidden');
     }
 
     // --- VIEW CALCULATION & BOUNDARIES ---
@@ -255,8 +285,8 @@ class FluxPdfViewer {
             this.zoomAtPoint(zoomFactor, e.clientX, e.clientY);
         } else {
             // Pan (Trackpad 2-finger scroll or Mouse Wheel)
-            this.state.translateX -= e.deltaX;
-            this.state.translateY -= e.deltaY;
+            this.state.translateX -= e.deltaX * this.state.panSensitivity;
+            this.state.translateY -= e.deltaY * this.state.panSensitivity;
             this.clampTranslation();
             this.applyTransform();
         }
@@ -308,8 +338,8 @@ class FluxPdfViewer {
         const dx = e.clientX - this.state.lastMouseX;
         const dy = e.clientY - this.state.lastMouseY;
         
-        this.state.translateX += dx;
-        this.state.translateY += dy;
+        this.state.translateX += dx * this.state.panSensitivity;
+        this.state.translateY += dy * this.state.panSensitivity;
         this.state.lastMouseX = e.clientX;
         this.state.lastMouseY = e.clientY;
         
@@ -344,8 +374,8 @@ class FluxPdfViewer {
             const dx = e.touches[0].clientX - this.state.lastMouseX;
             const dy = e.touches[0].clientY - this.state.lastMouseY;
             
-            this.state.translateX += dx;
-            this.state.translateY += dy;
+            this.state.translateX += dx * this.state.panSensitivity;
+            this.state.translateY += dy * this.state.panSensitivity;
             this.state.lastMouseX = e.touches[0].clientX;
             this.state.lastMouseY = e.touches[0].clientY;
             
