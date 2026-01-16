@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flux-core';
+const CACHE_NAME = 'flux-core-v2';
 const ASSETS = [
     './', 
     './index.html', 
@@ -7,6 +7,10 @@ const ASSETS = [
     './manifest.json',
     './style.css',
     './js/whiteboard.js',
+    './js/pdf-viewer.js',
+    './js/shortcuts.js',
+    
+    // Libraries
     './lib/katex/katex.min.css',
     './lib/katex/katex.min.js',
     './lib/marked/marked.min.js',
@@ -14,7 +18,7 @@ const ASSETS = [
     './lib/pdfjs/pdf.worker.min.js',
     './lib/jszip/jszip.min.js',
     
-    // Fonts
+    // KaTeX Fonts (Full list from your structure)
     './lib/katex/fonts/KaTeX_AMS-Regular.ttf',
     './lib/katex/fonts/KaTeX_AMS-Regular.woff',
     './lib/katex/fonts/KaTeX_AMS-Regular.woff2',
@@ -102,33 +106,25 @@ self.addEventListener('activate', evt => {
 
 // Fetch: Strategy Stale-While-Revalidate
 self.addEventListener('fetch', evt => {
-    // Only handle GET requests
     if (evt.request.method !== 'GET') return;
 
     evt.respondWith(
         caches.match(evt.request).then(cachedResponse => {
-            // Fetch from network to update cache in background
             const fetchPromise = fetch(evt.request).then(networkResponse => {
-                // Check if we received a valid response
                 if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-                    // For external assets (opaque/cors), we might still want to cache them if the type is 'cors' or 'opaque'
-                    // But standard 'basic' check is safer for local files.
-                    // However, we want to update the cache for whatever we fetched if possible.
+                    // Skip caching opaque responses if needed, or handle errors
+                } else {
+                    const responseToCache = networkResponse.clone();
+                    caches.open(CACHE_NAME).then(cache => {
+                        cache.put(evt.request, responseToCache);
+                    });
                 }
-                
-                const responseToCache = networkResponse.clone();
-                caches.open(CACHE_NAME).then(cache => {
-                    cache.put(evt.request, responseToCache);
-                });
                 return networkResponse;
             }).catch(() => {
                 // Network failed
             });
-
-            // Return cached response if available, otherwise wait for network
             return cachedResponse || fetchPromise;
         }).catch(() => {
-            // Fallback for navigation (HTML)
             if (evt.request.mode === 'navigate') {
                 return caches.match('./offline.html');
             }

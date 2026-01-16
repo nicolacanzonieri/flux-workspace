@@ -117,11 +117,14 @@ class FluxApp {
     }
 
     async init() {
-        this.loadExternalStyles();
+        await this.loadExternalStyles();
+        
         if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
         if(typeof FluxPdfViewer !== 'undefined') this.pdfViewer = new FluxPdfViewer();
         
-        this.loadSettings(); this.revealApplication(); this.bindEvents();
+        this.loadSettings(); 
+        this.revealApplication(); 
+        this.bindEvents();
     }
 
     async loadExternalStyles() {
@@ -129,9 +132,12 @@ class FluxApp {
             const response = await fetch('lib/katex/katex.min.css');
             if (response.ok) {
                 this.katexStyles = await response.text();
+            } else {
+                console.warn("Flux: KaTeX CSS response not OK. Formulas may look unstyled on canvas.");
             }
         } catch (e) {
-            console.warn("Flux: Failed to load KaTeX styles.", e);
+            console.warn("Flux: Failed to load KaTeX styles via fetch. If you are using file:// protocol, this is expected. Formulas will appear on the canvas but might lack proper styling. Please run a local server (python3 -m http.server) to fix this.", e);
+            // We do NOT throw here, allowing the app to continue loading
         }
     }
 
