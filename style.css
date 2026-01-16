@@ -399,10 +399,8 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 /* === 9. PDF VIEWER OVERLAY === */
 .pdf-overlay {
     position: fixed; 
-    /* Position below the top nav bar (approx 80px) */
     top: calc(var(--safe-top) + 80px); 
     left: 0; width: 100vw; 
-    /* Use dynamic viewport height to respect mobile address bars */
     height: calc(100dvh - (var(--safe-top) + 80px));
     background-color: var(--bg-color); 
     z-index: 110; 
@@ -415,6 +413,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
     display: flex; justify-content: space-between; align-items: center;
     padding: 10px 20px; border-bottom: 1px solid var(--border-color);
     background: var(--surface-color); flex-shrink: 0;
+    z-index: 20; /* Keep header above zoomed content */
 }
 
 .pdf-title {
@@ -429,18 +428,21 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 }
 
 .pdf-container {
-    flex: 1; position: relative; overflow: hidden;
+    flex: 1; position: relative; 
+    overflow: hidden; /* Important for panning */
     display: flex; justify-content: center; align-items: center;
     background: var(--bg-color);
-    padding-bottom: env(safe-area-inset-bottom); /* Respect safe area */
+    padding-bottom: env(safe-area-inset-bottom);
+    touch-action: none; /* Prevents browser handling pinch/scroll */
 }
 
 .pdf-canvas-wrapper {
     box-shadow: 0 10px 30px rgba(0,0,0,0.3);
     border: none; 
-    width: 90%; height: 90%; 
     display: flex; justify-content: center; align-items: center;
-    overflow: hidden;
+    transform-origin: center center; /* Zoom from center by default */
+    transition: none; /* Smoothness is handled by requestAnimationFrame or direct JS */
+    will-change: transform;
 }
 
 #pdf-render-canvas {
@@ -448,7 +450,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
     max-width: 100%; max-height: 100%;
 }
 
-/* PDF Navigation Arrows (Left/Right) */
+/* PDF Navigation Arrows */
 .pdf-nav-btn {
     position: absolute; top: 50%; transform: translateY(-50%);
     background: var(--surface-color); border: 1px solid var(--border-color);
@@ -459,10 +461,9 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
     transition: all 0.2s ease; z-index: 10;
 }
 .pdf-nav-btn:hover { background: var(--btn-hover-bg); transform: translateY(-50%) scale(1.1); }
-.pdf-nav-btn:active { transform: translateY(-50%) scale(0.95); }
 .pdf-nav-btn.left { left: 20px; }
 .pdf-nav-btn.right { right: 20px; }
-.pdf-nav-btn:disabled { opacity: 0.3; cursor: default; transform: translateY(-50%); }
+.pdf-nav-btn:disabled { opacity: 0.3; cursor: default; }
 
 /* === 10. WHITEBOARD / CANVAS === */
 canvas { display: block; width: 100vw; height: 100vh; touch-action: none; background-color: var(--bg-color); }
