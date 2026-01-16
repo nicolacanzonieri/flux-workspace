@@ -113,12 +113,17 @@ class FluxApp {
         
         this.katexStyles = "";
         this.whiteboard = null;
+        this.pdfViewer = null; // Initialize PDF Viewer holder
         this.init();
     }
 
     async init() {
         this.loadExternalStyles();
+        // Initialize Whiteboard
         if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
+        // Initialize PDF Viewer
+        if(typeof FluxPdfViewer !== 'undefined') this.pdfViewer = new FluxPdfViewer();
+        
         this.loadSettings(); this.revealApplication(); this.bindEvents();
     }
 
@@ -243,6 +248,20 @@ class FluxApp {
                  this.updateEditBar();
                  this.routeToEditor(el);
              }
+        });
+
+        // ADDED: Listener for PDF Preview Button Click
+        this.dom.canvas.addEventListener('flux-pdf-preview', (e) => {
+            const el = e.detail.element;
+            if (el && el.type === 'pdf' && this.pdfViewer) {
+                // Determine if src is a URL or Base64 (simple check)
+                // For this implementation, we rely on the Blob URL stored in el.src
+                if (el.src) {
+                    this.pdfViewer.open(el.src, el.name);
+                } else {
+                    alert('Cannot read PDF data.');
+                }
+            }
         });
 
         this.dom.themeToggle.addEventListener('change', e => {
@@ -422,7 +441,9 @@ class FluxApp {
     handlePdfUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
-        this.whiteboard.addPDF(file.name);
+        // Create Blob URL for internal usage (Note: This URL is valid only for the current session)
+        const fileUrl = URL.createObjectURL(file);
+        this.whiteboard.addPDF(file.name, fileUrl);
         this.selectTool('select');
         e.target.value = "";
     }

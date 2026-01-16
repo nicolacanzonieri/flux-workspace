@@ -66,6 +66,8 @@ class FluxWhiteboard {
             const copy = { ...el };
             if (copy.renderedImage) delete copy.renderedImage;
             if (copy.imgObj) delete copy.imgObj; 
+            // Note: Blob URLs in 'src' for PDFs/Images won't persist across sessions properly 
+            // without Base64 conversion, but are sufficient for active session state.
             return copy;
         });
 
@@ -197,13 +199,19 @@ class FluxWhiteboard {
         if(window.flux) window.flux.updateEditBar();
     }
 
-    addPDF(fileName) {
+    /**
+     * @method addPDF
+     * @param {string} fileName - Name of the PDF file
+     * @param {string} fileUrl - Blob URL of the PDF file data
+     */
+    addPDF(fileName, fileUrl) {
         this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
         const newPDF = {
             id: Date.now(),
             type: 'pdf',
             name: fileName,
+            src: fileUrl, // Store blob URL
             x: center.x - 155, // 310 / 2
             y: center.y - 45,  // Approx height / 2
             width: 310,
@@ -323,6 +331,19 @@ class FluxWhiteboard {
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (this.isPointInElement(mouse, el)) {
+                    // Added: Check for PDF Preview Button Click
+                    if (el.type === 'pdf') {
+                        // Check if click is in bottom-right "Preview" button area
+                        // Based on SVG, button is roughly in the last 100px of width and bottom half
+                        const btnAreaX = el.x + el.width - 100;
+                        const btnAreaY = el.y + el.height / 2;
+                        if (mouse.x > btnAreaX && mouse.y > btnAreaY) {
+                            this.canvas.dispatchEvent(new CustomEvent('flux-pdf-preview', { detail: { element: el } }));
+                            // Don't start dragging if we clicked the preview button
+                            return;
+                        }
+                    }
+
                     if (!this.interaction.selectedElements.includes(el)) this.interaction.selectedElements = [el];
                     this.saveHistory();
                     this.interaction.isDraggingElements = true; 

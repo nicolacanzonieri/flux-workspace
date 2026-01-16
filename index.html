@@ -19,6 +19,13 @@
     <script src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     
+    <!-- PDF.js for Document Rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+        // Initialize PDF.js worker
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    </script>
+
     <!-- JSZip for Exporting/Importing Projects -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
@@ -87,7 +94,6 @@
             <div id="library-popup" class="library-popup hidden">
                 <div class="library-header">
                     <h3 id="library-title">Library</h3>
-                    <!-- ADDED: PDF Toggle Button -->
                     <button id="btn-lib-mode-toggle" class="lib-header-btn" title="Toggle Documents">
                         <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text-icon lucide-file-text"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                     </button>
@@ -115,6 +121,31 @@
                         <span>New Board</span>
                     </button>
                 </div>
+            </div>
+        </div>
+
+        <!-- PDF VIEWER OVERLAY -->
+        <div id="pdf-viewer-overlay" class="pdf-overlay hidden">
+            <div class="pdf-header">
+                <span id="pdf-viewer-title" class="pdf-title">Document.pdf</span>
+                <div class="pdf-pagination">
+                    <span id="pdf-page-indicator">1 / 1</span>
+                </div>
+                <button id="btn-close-pdf" class="close-btn small">×</button>
+            </div>
+            
+            <div class="pdf-container">
+                <button id="btn-pdf-prev" class="pdf-nav-btn left" aria-label="Previous Page">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left-icon lucide-arrow-left"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
+                </button>
+                
+                <div class="pdf-canvas-wrapper">
+                    <canvas id="pdf-render-canvas"></canvas>
+                </div>
+
+                <button id="btn-pdf-next" class="pdf-nav-btn right" aria-label="Next Page">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-right-icon lucide-arrow-right"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                </button>
             </div>
         </div>
 
@@ -170,26 +201,26 @@
             </div>
             <textarea id="formula-input" class="markdown-textarea" placeholder="Type LaTeX equation..." spellcheck="false"></textarea>
             <div class="editor-toolbar-bottom">
-                <button class="latex-btn" data-latex="{" title="Open Brace">{</button>
-                <button class="latex-btn" data-latex="}" title="Close Brace">}</button>
-                <div class="md-top"></div>
-                <button class="latex-btn" data-latex="\frac{}{}" title="Fraction"><span style="font-family:serif; font-style:italic">a/b</span></button>
-                <button class="latex-btn" data-latex="\" title="Backslash">\</button>
-                <button class="latex-btn" data-latex="\sqrt{}" title="Square Root">√</button>
-                <button class="latex-btn" data-latex="^" title="Power">x²</button>
-                <button class="latex-btn" data-latex="_" title="Subscript">x₂</button>
-                <div class="md-separator"></div>
-                <button class="latex-btn" data-latex="\int" title="Integral">∫</button>
-                <button class="latex-btn" data-latex="\sum" title="Sum">∑</button>
-                <button class="latex-btn" data-latex="\infty" title="Infinity">∞</button>
-                <button class="latex-btn" data-latex="\pi" title="Pi">π</button>
-                <button class="latex-btn" data-latex="\alpha" title="Alpha">α</button>
-                <button class="latex-btn" data-latex="\beta" title="Beta">β</button>
-                <div class="md-separator"></div>
-                <button class="latex-btn" data-latex="=" title="Equals">=</button>
-                <button class="latex-btn" data-latex="\neq" title="Not Equal">≠</button>
-                <button class="latex-btn" data-latex="\le" title="Less or Equal">≤</button>
-                <button class="latex-btn" data-latex="\ge" title="Greater or Equal">≥</button>
+                 <button class="latex-btn" data-latex="{" title="Open Brace">{</button>
+                 <button class="latex-btn" data-latex="}" title="Close Brace">}</button>
+                 <div class="md-top"></div>
+                 <button class="latex-btn" data-latex="\frac{}{}" title="Fraction"><span style="font-family:serif; font-style:italic">a/b</span></button>
+                 <button class="latex-btn" data-latex="\" title="Backslash">\</button>
+                 <button class="latex-btn" data-latex="\sqrt{}" title="Square Root">√</button>
+                 <button class="latex-btn" data-latex="^" title="Power">x²</button>
+                 <button class="latex-btn" data-latex="_" title="Subscript">x₂</button>
+                 <div class="md-separator"></div>
+                 <button class="latex-btn" data-latex="\int" title="Integral">∫</button>
+                 <button class="latex-btn" data-latex="\sum" title="Sum">∑</button>
+                 <button class="latex-btn" data-latex="\infty" title="Infinity">∞</button>
+                 <button class="latex-btn" data-latex="\pi" title="Pi">π</button>
+                 <button class="latex-btn" data-latex="\alpha" title="Alpha">α</button>
+                 <button class="latex-btn" data-latex="\beta" title="Beta">β</button>
+                 <div class="md-separator"></div>
+                 <button class="latex-btn" data-latex="=" title="Equals">=</button>
+                 <button class="latex-btn" data-latex="\neq" title="Not Equal">≠</button>
+                 <button class="latex-btn" data-latex="\le" title="Less or Equal">≤</button>
+                 <button class="latex-btn" data-latex="\ge" title="Greater or Equal">≥</button>
             </div>
         </div>
 
@@ -421,11 +452,11 @@
         
         <input type="file" id="file-input" accept=".json,.flux,.zip" style="display: none;" />
         <input type="file" id="image-input" accept="image/*" style="display: none;" />
-        <!-- ADDED: PDF Input -->
         <input type="file" id="pdf-input" accept=".pdf" style="display: none;" />
     </main>
 
     <script src="js/whiteboard.js"></script>
+    <script src="js/pdf-viewer.js"></script>
     <script src="app.js"></script>
     <script src="js/shortcuts.js"></script>
 </body>

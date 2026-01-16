@@ -322,6 +322,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
 .modal-header h2 { margin: 0; font-weight: 300; font-size: 1.8rem; }
 .close-btn { background: none; border: none; font-size: 2rem; color: var(--text-secondary); cursor: pointer; }
+.close-btn.small { font-size: 1.5rem; padding: 5px 15px; background: var(--btn-hover-bg); border-radius: 8px; color: var(--text-primary); }
 .modal-divider { height: 1px; background: var(--border-color); margin: 20px 0; width: 100%; }
 .color-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; justify-items: center; }
 .color-option-wrapper { display: flex; flex-direction: column; align-items: center; gap: 8px; font-size: 0.7rem; color: var(--text-secondary); text-transform: uppercase; }
@@ -395,7 +396,76 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 }
 .markdown-textarea:focus { outline: none; }
 
-/* === 9. WHITEBOARD / CANVAS === */
+/* === 9. PDF VIEWER OVERLAY === */
+.pdf-overlay {
+    position: fixed; 
+    /* Position below the top nav bar (approx 80px) */
+    top: calc(var(--safe-top) + 80px); 
+    left: 0; width: 100vw; 
+    /* Use dynamic viewport height to respect mobile address bars */
+    height: calc(100dvh - (var(--safe-top) + 80px));
+    background-color: var(--bg-color); 
+    z-index: 110; 
+    display: flex; flex-direction: column;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
+}
+.pdf-overlay.hidden { opacity: 0; visibility: hidden; pointer-events: none; }
+
+.pdf-header {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 20px; border-bottom: 1px solid var(--border-color);
+    background: var(--surface-color); flex-shrink: 0;
+}
+
+.pdf-title {
+    font-size: 0.9rem; color: var(--text-primary); 
+    font-weight: 500; overflow: hidden; 
+    text-overflow: ellipsis; white-space: nowrap; max-width: 50%;
+}
+
+.pdf-pagination {
+    color: var(--text-secondary); font-variant-numeric: tabular-nums;
+    font-size: 0.9rem; font-weight: 500;
+}
+
+.pdf-container {
+    flex: 1; position: relative; overflow: hidden;
+    display: flex; justify-content: center; align-items: center;
+    background: var(--bg-color);
+    padding-bottom: env(safe-area-inset-bottom); /* Respect safe area */
+}
+
+.pdf-canvas-wrapper {
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    width: 90%; height: 90%; /* Fixed percentage of available space */
+    display: flex; justify-content: center; align-items: center;
+    overflow: hidden;
+}
+
+#pdf-render-canvas {
+    width: auto; height: auto;
+    max-width: 100%; max-height: 100%;
+    /* removed object-fit: contain as it applies to replaced elements, not canvas content directly */
+}
+
+/* PDF Navigation Arrows (Left/Right) */
+.pdf-nav-btn {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: var(--surface-color); border: 1px solid var(--border-color);
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    color: var(--text-primary); cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+    transition: all 0.2s ease; z-index: 10;
+}
+.pdf-nav-btn:hover { background: var(--btn-hover-bg); transform: translateY(-50%) scale(1.1); }
+.pdf-nav-btn:active { transform: translateY(-50%) scale(0.95); }
+.pdf-nav-btn.left { left: 20px; }
+.pdf-nav-btn.right { right: 20px; }
+.pdf-nav-btn:disabled { opacity: 0.3; cursor: default; transform: translateY(-50%); }
+
+/* === 10. WHITEBOARD / CANVAS === */
 canvas { display: block; width: 100vw; height: 100vh; touch-action: none; background-color: var(--bg-color); }
 canvas.hidden { display: none; }
 canvas.panning { cursor: grabbing !important; }
