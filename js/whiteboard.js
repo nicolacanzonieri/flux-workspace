@@ -66,8 +66,6 @@ class FluxWhiteboard {
             const copy = { ...el };
             if (copy.renderedImage) delete copy.renderedImage;
             if (copy.imgObj) delete copy.imgObj; 
-            // Note: Blob URLs in 'src' for PDFs/Images won't persist across sessions properly 
-            // without Base64 conversion, but are sufficient for active session state.
             return copy;
         });
 
@@ -211,9 +209,9 @@ class FluxWhiteboard {
             id: Date.now(),
             type: 'pdf',
             name: fileName,
-            src: fileUrl, // Store blob URL
-            x: center.x - 155, // 310 / 2
-            y: center.y - 45,  // Approx height / 2
+            src: fileUrl, 
+            x: center.x - 155, 
+            y: center.y - 45,  
             width: 310,
             height: 90, 
             renderedImage: null
@@ -316,7 +314,7 @@ class FluxWhiteboard {
                     this.saveHistory();
                     this.interaction.isDraggingHandle = true; 
                     this.interaction.draggedElement = el;
-                    this.interaction.draggedHandle = i; 
+                    this.interaction.draggedHandle = (h.id !== undefined) ? h.id : i; 
                     this.interaction.initialWidth = el.width || 0;
                     this.interaction.initialHeight = el.height || 0;
                     this.interaction.aspectRatio = (el.width / el.height) || 1;
@@ -331,16 +329,23 @@ class FluxWhiteboard {
             for (let i = this.elements.length - 1; i >= 0; i--) {
                 const el = this.elements[i];
                 if (this.isPointInElement(mouse, el)) {
-                    // Added: Check for PDF Preview Button Click
+                    // PDF Preview Button Click Detection
                     if (el.type === 'pdf') {
-                        // Check if click is in bottom-right "Preview" button area
-                        // Based on SVG, button is roughly in the last 100px of width and bottom half
-                        const btnAreaX = el.x + el.width - 100;
-                        const btnAreaY = el.y + el.height / 2;
-                        if (mouse.x > btnAreaX && mouse.y > btnAreaY) {
+                        // Correct Hit Box for "Preview" button
+                        // Based on SVG Layout:
+                        // Left padding(16) + Icon(40) + Gap(14) = 70px start.
+                        // Base Width 310. Start% = 70/310 = ~0.22.
+                        // Button is roughly ~80-100px wide. End% = ~0.55.
+                        // Vertically, content is centered. Button is in bottom half.
+                        const btnXStart = el.x + (el.width * 0.20);
+                        const btnXEnd = el.x + (el.width * 0.60);
+                        const btnYStart = el.y + (el.height * 0.45);
+                        const btnYEnd = el.y + (el.height * 0.90);
+
+                        if (mouse.x >= btnXStart && mouse.x <= btnXEnd &&
+                            mouse.y >= btnYStart && mouse.y <= btnYEnd) {
                             this.canvas.dispatchEvent(new CustomEvent('flux-pdf-preview', { detail: { element: el } }));
-                            // Don't start dragging if we clicked the preview button
-                            return;
+                            return; // Stop drag action
                         }
                     }
 
@@ -363,6 +368,28 @@ class FluxWhiteboard {
         const pos = this.getPointerPos(e);
         const mouse = this.screenToWorld(pos.x, pos.y);
         
+        // Change cursor over PDF button
+        let cursorSet = false;
+        if (!this.interaction.isPanning && !this.interaction.isDraggingHandle && !this.interaction.isDrawingPath && window.flux.state.activeTool === 'select') {
+            for (let i = this.elements.length - 1; i >= 0; i--) {
+                const el = this.elements[i];
+                if (el.type === 'pdf' && this.isPointInElement(mouse, el)) {
+                    const btnXStart = el.x + (el.width * 0.20);
+                    const btnXEnd = el.x + (el.width * 0.60);
+                    const btnYStart = el.y + (el.height * 0.45);
+                    const btnYEnd = el.y + (el.height * 0.90);
+                    if (mouse.x >= btnXStart && mouse.x <= btnXEnd && mouse.y >= btnYStart && mouse.y <= btnYEnd) {
+                        this.canvas.style.cursor = 'pointer';
+                        cursorSet = true;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!cursorSet && !this.interaction.isPanning) {
+            this.canvas.style.cursor = 'default';
+        }
+
         if (this.interaction.isPanning) {
             const clientX = e.touches ? e.touches[0].clientX : e.clientX;
             const clientY = e.touches ? e.touches[0].clientY : e.clientY;
@@ -398,9 +425,25 @@ class FluxWhiteboard {
 
     getElementHandles(el) {
         if (el.type === 'line') return [el.p1, el.p2];
-        if (el.type === 'shape' || el.type === 'text' || el.type === 'image' || el.type === 'pdf') {
+        
+        // Handles only on corners for PDF
+        if (el.type === 'pdf') {
             const {x, y, width: w, height: h} = el;
-            return [{x, y}, {x: x+w/2, y}, {x: x+w, y}, {x: x+w, y: y+h/2}, {x: x+w, y: y+h}, {x: x+w/2, y: y+h}, {x, y: y+h}, {x, y: y+h/2}];
+            return [
+                {x, y, id: 0}, 
+                {x: x+w, y, id: 2}, 
+                {x: x+w, y: y+h, id: 4}, 
+                {x, y: y+h, id: 6}
+            ];
+        }
+
+        if (el.type === 'shape' || el.type === 'text' || el.type === 'image') {
+            const {x, y, width: w, height: h} = el;
+            return [
+                {x, y, id: 0}, {x: x+w/2, y, id: 1}, {x: x+w, y, id: 2}, 
+                {x: x+w, y: y+h/2, id: 3}, {x: x+w, y: y+h, id: 4}, {x: x+w/2, y: y+h, id: 5}, 
+                {x, y: y+h, id: 6}, {x, y: y+h/2, id: 7}
+            ];
         }
         return [];
     }
@@ -428,30 +471,25 @@ class FluxWhiteboard {
                 case 7: el.width = right - mouse.x; break;
             }
 
-            // 2. Enforce Proportional scaling for corners
-            // MODIFICA: Il testo non deve mantenere l'aspect ratio (per permettere reflow)
-            // Le immagini e le shape mantengono il comportamento standard
-            // Per i PDF, permettiamo il ridimensionamento libero ma se è un angolo spesso è preferibile mantenere l'aspect ratio
-            // Tuttavia il prompt dice "ridimensionabile con maniglie", trattiamolo come una shape generica.
-            if (isCorner && el.type !== 'text' && el.type !== 'pdf') {
-                if (el.width / ratio > el.height) el.height = el.width / ratio;
-                else el.width = el.height * ratio;
-            }
-            
-            // For images, we strictly enforce ratio on all corners
-            if (isCorner && el.type === 'image') {
-                 if (el.width / ratio > el.height) el.height = el.width / ratio;
-                 else el.width = el.height * ratio;
+            // 2. Enforce Proportional scaling
+            if (isCorner && el.type !== 'text') {
+                if (el.type === 'image' || el.type === 'pdf') {
+                     if (el.width / ratio > el.height) el.height = el.width / ratio;
+                     else el.width = el.height * ratio;
+                } else {
+                    if (el.width / ratio > el.height) el.height = el.width / ratio;
+                    else el.width = el.height * ratio;
+                }
             }
 
             // 3. Prevent going below minSize
             if (el.width < minSize) { 
                 el.width = minSize; 
-                if (isCorner && el.type !== 'text' && el.type !== 'pdf') el.height = el.width / ratio; 
+                if (isCorner && el.type !== 'text') el.height = el.width / ratio; 
             }
             if (el.height < minSize) { 
                 el.height = minSize; 
-                if (isCorner && el.type !== 'text' && el.type !== 'pdf') el.width = el.height * ratio; 
+                if (isCorner && el.type !== 'text') el.width = el.height * ratio; 
             }
 
             // 4. Reposition based on anchor
@@ -662,7 +700,24 @@ class FluxWhiteboard {
         const borderColor = isLight ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.1)";
         const textColor = isLight ? "#1a1a1d" : "#ffffff";
         const btnColor = isLight ? "#1a1a1d" : "#ffffff";
-        const accentColor = isLight ? "#007aff" : "#00d2ff";
+        
+        // UPDATED: Scaling Logic for content
+        // Base width for PDF box is 310. Calculate scale factor.
+        const baseWidth = 310;
+        const scale = el.width / baseWidth;
+        
+        const fontSize = 14 * scale;
+        const btnFontSize = 11 * scale;
+        const paddingY = 12 * scale;
+        const paddingX = 16 * scale;
+        const gap = 14 * scale;
+        const iconSize = 32 * scale;
+        const iconWrapperSize = 40 * scale;
+        const borderRadius = 18 * scale;
+        const btnPaddingY = 6 * scale;
+        const btnPaddingX = 16 * scale;
+        const btnBorderRadius = 8 * scale;
+        const borderWidth = Math.max(1, 1 * scale); // Ensure at least 1px
 
         const svgString = `
         <svg xmlns="http://www.w3.org/2000/svg" width="${el.width}" height="${el.height}">
@@ -674,37 +729,37 @@ class FluxWhiteboard {
                     display: flex;
                     align-items: center;
                     background: ${bgColor};
-                    border: 1px solid ${borderColor};
-                    border-radius: 18px;
-                    padding: 12px 16px;
+                    border: ${borderWidth}px solid ${borderColor};
+                    border-radius: ${borderRadius}px;
+                    padding: ${paddingY}px ${paddingX}px;
                     box-sizing: border-box;
-                    gap: 14px;
+                    gap: ${gap}px;
                     overflow: hidden;
                 ">
                     <style>
                         .icon-wrapper {
                             display: flex; align-items: center; justify-content: center;
-                            background: transparent; height: 100%; width: 40px;
+                            background: transparent; height: 100%; width: ${iconWrapperSize}px;
                             flex-shrink: 0; color: ${textColor};
                         }
                         .content {
                             display: flex; flex-direction: column; justify-content: center;
-                            gap: 7px; overflow: hidden; flex: 1;
+                            gap: ${7 * scale}px; overflow: hidden; flex: 1;
                         }
                         .title {
-                            color: ${textColor}; font-size: 14px; font-weight: 500;
+                            color: ${textColor}; font-size: ${fontSize}px; font-weight: 500;
                             margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
                         }
                         .btn {
                             background: transparent; color: ${btnColor};
-                            border: 1px solid ${isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
-                            border-radius: 8px; padding: 6px 16px;
-                            font-size: 11px; font-weight: 600; text-transform: uppercase;
-                            letter-spacing: 0.6px; width: fit-content;
+                            border: ${borderWidth}px solid ${isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
+                            border-radius: ${btnBorderRadius}px; padding: ${btnPaddingY}px ${btnPaddingX}px;
+                            font-size: ${btnFontSize}px; font-weight: 600; text-transform: uppercase;
+                            letter-spacing: ${0.6 * scale}px; width: fit-content;
                         }
                     </style>
                     <div class="icon-wrapper">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
                             <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
                             <path d="M10 9H8"/>
@@ -729,96 +784,6 @@ class FluxWhiteboard {
             URL.revokeObjectURL(url);
             this.render();
         };
-        img.src = url;
-    }
-
-    drawTextElement(el, isSelected) {
-        const sPos = this.worldToScreen(el.x, el.y);
-        const sW = el.width * this.view.scale;
-        const sH = el.height * this.view.scale;
-        
-        // Draw selection box first (if selected)
-        if (isSelected) { 
-            this.ctx.lineWidth = 1; 
-            this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color'); 
-            this.ctx.setLineDash([5, 5]); 
-            this.ctx.strokeRect(sPos.x, sPos.y, sW, sH); 
-            this.ctx.setLineDash([]); 
-            this.getElementHandles(el).forEach(h => { 
-                const sh = this.worldToScreen(h.x, h.y); 
-                this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color')); 
-            });
-        }
-        if (el.renderedImage) {
-            this.ctx.drawImage(el.renderedImage, sPos.x, sPos.y, sW, sH);
-        } else {
-            this.renderMarkdownToImage(el);
-        }
-    }
-
-    /**
-     * @method renderMarkdownToImage
-     * @description Converts Markdown+LaTeX to an SVG Image object and caches it on the element.
-     */
-    renderMarkdownToImage(el) {
-        if (el.isRendering) return;
-        el.isRendering = true;
-        let htmlContent = "";
-        if (window.marked) htmlContent = window.marked.parse(el.content);
-        else htmlContent = `<p>${el.content}</p>`;
-
-        if (window.katex) {
-            htmlContent = htmlContent.replace(/\$\$([\s\S]*?)\$\$/g, (match, tex) => {
-                try { return window.katex.renderToString(tex, { displayMode: true, throwOnError: false }); } catch(e){ return match; }
-            });
-            htmlContent = htmlContent.replace(/\$([^\$\n]+?)\$/g, (match, tex) => {
-                try { return window.katex.renderToString(tex, { displayMode: false, throwOnError: false }); } catch(e){ return match; }
-            });
-        }
-
-        const fontSize = el.fontSize;
-        const color = el.color;
-        const computedStyle = getComputedStyle(document.body);
-        const fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-        const katexCSS = (window.flux && window.flux.katexStyles) ? window.flux.katexStyles : "";
-
-        const svgString = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="${el.width}" height="${el.height}">
-            <foreignObject width="100%" height="100%">
-                <div xmlns="http://www.w3.org/1999/xhtml" style="
-                    font-family: ${fontFamily};
-                    font-size: ${fontSize}px;
-                    color: ${color};
-                    width: 100%;
-                    height: 100%;
-                    overflow: hidden;
-                    word-wrap: break-word;
-                ">
-                    <style>
-                        ${katexCSS}
-                        p { margin: 0 0 0.5em 0; }
-                        h1, h2, h3 { margin: 0 0 0.5em 0; font-weight: 600; line-height: 1.2; }
-                        h1 { font-size: 1.5em; } h2 { font-size: 1.3em; } h3 { font-size: 1.1em; }
-                        ul, ol { margin: 0 0 0.5em 0; padding-left: 1.2em; }
-                        blockquote { border-left: 3px solid ${color}; padding-left: 10px; opacity: 0.8; margin: 0; }
-                        code { background: rgba(127,127,127,0.2); padding: 2px 4px; border-radius: 3px; font-family: monospace; }
-                        .katex-mathml { display: none !important; }
-                    </style>
-                    ${htmlContent}
-                </div>
-            </foreignObject>
-        </svg>`;
-
-        const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const img = new Image();
-        img.onload = () => {
-            el.renderedImage = img;
-            el.isRendering = false;
-            URL.revokeObjectURL(url);
-            this.render();
-        };
-        img.onerror = () => { el.isRendering = false; };
         img.src = url;
     }
 
