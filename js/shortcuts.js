@@ -64,7 +64,28 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
-    // --- 3. SINGLE KEY SHORTCUTS ---
+    // --- 3. PDF VIEWER SHORTCUTS ---
+    // These work only if the PDF viewer is open and the user isn't typing elsewhere
+    const isPdfOpen = app.pdfViewer && !app.pdfViewer.dom.overlay.classList.contains('hidden');
+    if (isPdfOpen && !isTyping) {
+        if (e.key === 'ArrowRight') {
+            e.preventDefault();
+            app.pdfViewer.onNextPage();
+            return;
+        }
+        if (e.key === 'ArrowLeft') {
+            e.preventDefault();
+            app.pdfViewer.onPrevPage();
+            return;
+        }
+        if (e.key === 'Escape') {
+            e.preventDefault();
+            app.pdfViewer.close();
+            return;
+        }
+    }
+
+    // --- 4. SINGLE KEY SHORTCUTS ---
     // If typing inside an input/textarea, we STOP here to allow natural typing
     if (isTyping) return;
 
