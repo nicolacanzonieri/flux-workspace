@@ -9,11 +9,9 @@ class FluxPdfViewer {
             container: document.querySelector('.pdf-container'),
             wrapper: document.querySelector('.pdf-canvas-wrapper'),
             
-            // Layer 1: PDF Content
             canvas: document.getElementById('pdf-render-canvas'),
             ctx: document.getElementById('pdf-render-canvas').getContext('2d'),
             
-            // Layer 2: Annotations (Highlights & Selection Preview)
             annotationCanvas: document.getElementById('pdf-annotation-canvas'),
             annotationCtx: document.getElementById('pdf-annotation-canvas').getContext('2d'),
             
@@ -25,7 +23,14 @@ class FluxPdfViewer {
             btnNext: document.getElementById('btn-pdf-next'),
             pill: document.getElementById('pdf-minimized-pill'),
             pillTitle: document.getElementById('pdf-pill-title'),
-            toolBtns: document.querySelectorAll('.pdf-tool-btn')
+            toolBtns: document.querySelectorAll('.pdf-tool-btn'),
+
+            // Modal elements
+            gotoModal: document.getElementById('pdf-goto-modal'),
+            gotoInput: document.getElementById('input-goto-page'),
+            gotoConfirm: document.getElementById('btn-confirm-goto'),
+            gotoClose: document.getElementById('btn-close-goto'),
+            gotoRangeText: document.getElementById('goto-page-range')
         };
         
         this.pdfDoc = null;
@@ -34,12 +39,8 @@ class FluxPdfViewer {
         this.pageNumPending = null;
         this.fileName = "Document.pdf";
 
-        this.dom.indicator = document.getElementById('pdf-page-indicator');
-        this.dom.gotoModal = document.getElementById('pdf-goto-modal');
-        this.dom.gotoInput = document.getElementById('input-goto-page');
-        this.dom.gotoConfirm = document.getElementById('btn-confirm-goto');
-        this.dom.gotoClose = document.getElementById('btn-close-goto');
-        this.dom.gotoRangeText = document.getElementById('goto-page-range');
+        // Reference to the source element on the whiteboard
+        this.activeElement = null;
 
         // View State
         this.state = {
@@ -48,27 +49,23 @@ class FluxPdfViewer {
             maxZoom: 5,
             translateX: 0,
             translateY: 0,
-            activePdfTool: 'select', // 'select', 'highlighter', 'eraser'
-            
-            isDragging: false, // For panning
-            isDrawingAnnotation: false, // For highlighting/erasing
+            activePdfTool: 'select', 
+            isDragging: false, 
+            isDrawingAnnotation: false, 
             lastMouseX: 0,
             lastMouseY: 0,
-            
             annotationStart: { x: 0, y: 0 },
             currentAnnotationRect: null,
-            
-            baseWidth: 0, // Unscaled PDF width
+            baseWidth: 0, 
             baseHeight: 0,
-            renderScale: 2.5, // High DPI factor
-            
+            renderScale: 2.5, 
             zoomSensitivity: 0.008, 
-            panSensitivity: 1.1
+            panSensitivity: 1.1,
+            initialPinchDist: 0,
+            initialPinchZoom: 1
         };
 
-        // Annotations Store: Array of objects { page: 1, x, y, w, h, type: 'highlight' }
         this.annotations = []; 
-
         this.init();
     }
 
@@ -113,6 +110,14 @@ class FluxPdfViewer {
         });
     }
 
+    saveAnnotations() {
+        if (this.activeElement) {
+            // Deep copy current annotations back to the whiteboard element
+            this.activeElement.annotations = JSON.parse(JSON.stringify(this.annotations));
+            console.log("Annotations saved to element:", this.activeElement.id);
+        }
+    }
+
     selectTool(tool) {
         this.state.activePdfTool = tool;
         this.dom.toolBtns.forEach(btn => {
@@ -126,38 +131,71 @@ class FluxPdfViewer {
         this.drawAnnotations();
     }
 
-    async open(url, name) {
-        this.fileName = name || "Document.pdf";
+    async open(element) {
+        // Validation
+        if (!element || !element.src) {
+            console.error("Invalid PDF element passed to open()");
+            return;
+        }
+
+        console.log("PDF Viewer: Opening", element.name);
+        
+        // Store reference and load data
+        this.activeElement = element;
+        this.fileName = element.name || "Document.pdf";
+        
+        // Load existing annotations from the element (or empty array if new)
+        // Deep copy to prevent direct mutation until save
+        this.annotations = element.annotations ? JSON.parse(JSON.stringify(element.annotations)) : [];
+
+        // Update UI
         this.dom.title.textContent = this.fileName;
         this.dom.pillTitle.textContent = this.fileName;
-        this.dom.pill.classList.add('hidden');
-        this.dom.overlay.classList.remove('hidden');
         
+        // Force visibility
+        this.dom.overlay.classList.remove('hidden');
+        this.dom.overlay.style.display = 'flex';
+        this.dom.pill.classList.add('hidden');
+        
+        // Reset View
         this.state.translateX = 0;
         this.state.translateY = 0;
         this.state.zoom = 1;
 
         try {
-            const loadingTask = pdfjsLib.getDocument(url);
+            if (typeof pdfjsLib === 'undefined') throw new Error("PDF.js library not loaded");
+
+            const loadingTask = pdfjsLib.getDocument(element.src);
             this.pdfDoc = await loadingTask.promise;
             this.pageNum = 1;
             this.renderPage(this.pageNum);
         } catch (error) {
             console.error('Error loading PDF:', error);
+            alert("Could not load PDF. Check console.");
             this.close();
         }
     }
 
     close() {
+        // Save changes before closing
+        this.saveAnnotations();
+
         this.dom.overlay.classList.add('hidden');
         this.dom.pill.classList.add('hidden');
+        
+        // Reset local state
         this.pdfDoc = null;
         this.annotations = []; 
+        this.activeElement = null; // Detach reference
+        
         this.dom.ctx.clearRect(0, 0, this.dom.canvas.width, this.dom.canvas.height);
         this.dom.annotationCtx.clearRect(0, 0, this.dom.annotationCanvas.width, this.dom.annotationCanvas.height);
     }
 
     minimize() {
+        // Save changes before minimizing
+        this.saveAnnotations();
+
         this.dom.overlay.classList.add('hidden');
         this.dom.pill.classList.remove('hidden');
     }

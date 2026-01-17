@@ -198,13 +198,14 @@ class FluxWhiteboard {
     }
 
     /**
-     * @method addPDF
-     * @param {string} fileName - Name of the PDF file
-     * @param {string} fileUrl - Base64 or Blob URL of the PDF file data
+     * METHOD: addPDF
+     * Location: inside class FluxWhiteboard in js/whiteboard.js
+     * Description: Initializes the PDF element with an empty annotations array.
      */
     addPDF(fileName, fileUrl) {
         this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
+        
         const newPDF = {
             id: Date.now(),
             type: 'pdf',
@@ -214,27 +215,57 @@ class FluxWhiteboard {
             y: center.y - 45,  
             width: 310,
             height: 90, 
-            renderedImage: null
+            renderedImage: null,
+            // Initialize empty array for annotations persistence
+            annotations: [] 
         };
+
         this.elements.push(newPDF);
         this.interaction.selectedElements = [newPDF];
         this.render();
         if(window.flux) window.flux.updateEditBar();
     }
 
+    /**
+     * METHOD: duplicateSelected
+     * Location: inside class FluxWhiteboard in js/whiteboard.js
+     * Description: Ensures annotations are deep-copied when duplicating an element.
+     */
     duplicateSelected() {
         this.saveHistory();
         const newSelected = [];
+        
         this.interaction.selectedElements.forEach(el => {
-            const clone = JSON.parse(JSON.stringify(el)); clone.id = Date.now() + Math.random();
+            // Deep copy the element (includes annotations array)
+            const clone = JSON.parse(JSON.stringify(el)); 
+            clone.id = Date.now() + Math.random();
+            
             const offset = 20 / this.view.scale;
-            if (clone.type === 'line') { clone.p1.x += offset; clone.p1.y += offset; clone.p2.x += offset; clone.p2.y += offset; }
-            else if (clone.type === 'pen') { clone.points.forEach(p => { p.x += offset; p.y += offset; }); }
-            else if (clone.type === 'shape' || clone.type === 'text' || clone.type === 'image' || clone.type === 'pdf') { clone.x += offset; clone.y += offset; }
+            
+            // Handle offsets based on type
+            if (clone.type === 'line') { 
+                clone.p1.x += offset; clone.p1.y += offset; 
+                clone.p2.x += offset; clone.p2.y += offset; 
+            } else if (clone.type === 'pen') { 
+                clone.points.forEach(p => { p.x += offset; p.y += offset; }); 
+            } else if (clone.type === 'shape' || clone.type === 'text' || clone.type === 'image' || clone.type === 'pdf') { 
+                clone.x += offset; clone.y += offset; 
+            }
+            
+            // Clear render cache for text and pdf
             if (clone.type === 'text' || clone.type === 'pdf') clone.renderedImage = null;
-            this.elements.push(clone); newSelected.push(clone);
+
+            // Safety check: ensure annotations array exists for PDF clones
+            if (clone.type === 'pdf' && !clone.annotations) {
+                clone.annotations = [];
+            }
+
+            this.elements.push(clone); 
+            newSelected.push(clone);
         });
-        this.interaction.selectedElements = newSelected; this.render();
+
+        this.interaction.selectedElements = newSelected; 
+        this.render();
     }
 
     deleteSelected() {

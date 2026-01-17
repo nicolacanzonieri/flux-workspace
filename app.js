@@ -245,22 +245,31 @@ class FluxApp {
              }
         });
 
-        // UPDATED: flux-pdf-preview event handler
-        this.dom.canvas.addEventListener('flux-pdf-preview', (e) => {
+        /**
+         * LISTENER: flux-pdf-preview
+         * Location: inside bindEvents() method in app.js
+         * Description: Passes the full element reference to the viewer to enable read/write of annotations.
+         */
+        window.addEventListener('flux-pdf-preview', (e) => {
             const el = e.detail.element;
+            console.log("App received preview request for:", el.name);
+            
             if (el && el.type === 'pdf' && this.pdfViewer) {
+                // 1. Hide editing toolbar
+                this.dom.editBar.classList.add('hidden');
+                
+                // 2. Deselect elements on whiteboard
+                if(this.whiteboard) {
+                    this.whiteboard.interaction.selectedElements = [];
+                    this.whiteboard.render();
+                }
+
+                // 3. Open viewer passing the full element reference
                 if (el.src) {
-                    // Hide the editing toolbar immediately when opening the viewer
-                    this.dom.editBar.classList.add('hidden');
-                    // Deselect elements on the whiteboard to keep the UI clean
-                    if(this.whiteboard) {
-                        this.whiteboard.interaction.selectedElements = [];
-                        this.whiteboard.render();
-                    }
-                    // Open the viewer
-                    this.pdfViewer.open(el.src, el.name);
+                    this.pdfViewer.open(el);
                 } else {
-                    alert('Cannot read PDF data.');
+                    console.error("Error: PDF file has no valid data (missing src)");
+                    alert("Cannot open PDF: Data is missing.");
                 }
             }
         });
