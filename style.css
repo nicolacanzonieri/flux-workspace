@@ -490,6 +490,35 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
     touch-action: none;
 }
 
+#pdf-page-indicator {
+    background: var(--glass-bg);
+    padding: 6px 14px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    display: inline-block;
+}
+
+#pdf-page-indicator:hover {
+    background: var(--btn-hover-bg);
+    border-color: var(--accent-color);
+    color: var(--text-primary);
+    transform: translateY(-1px);
+}
+
+#input-goto-page {
+    width: 100%;
+    background: var(--glass-bg);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    padding: 10px;
+    text-align: center;
+    font-family: monospace;
+}
+
 .pdf-toolbar {
     position: absolute;
     bottom: 30px; 

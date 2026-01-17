@@ -34,6 +34,13 @@ class FluxPdfViewer {
         this.pageNumPending = null;
         this.fileName = "Document.pdf";
 
+        this.dom.indicator = document.getElementById('pdf-page-indicator');
+        this.dom.gotoModal = document.getElementById('pdf-goto-modal');
+        this.dom.gotoInput = document.getElementById('input-goto-page');
+        this.dom.gotoConfirm = document.getElementById('btn-confirm-goto');
+        this.dom.gotoClose = document.getElementById('btn-close-goto');
+        this.dom.gotoRangeText = document.getElementById('goto-page-range');
+
         // View State
         this.state = {
             zoom: 1,
@@ -71,6 +78,9 @@ class FluxPdfViewer {
         this.dom.pill.addEventListener('click', () => this.restore());
         this.dom.btnPrev.addEventListener('click', () => this.onPrevPage());
         this.dom.btnNext.addEventListener('click', () => this.onNextPage());
+        this.dom.indicator.addEventListener('click', () => this.openGotoModal());
+        this.dom.gotoClose.addEventListener('click', () => this.dom.gotoModal.classList.add('hidden'));
+        this.dom.gotoConfirm.addEventListener('click', () => this.handleGotoPage());
         
         this.dom.toolBtns.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -87,6 +97,14 @@ class FluxPdfViewer {
         this.dom.container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
         this.dom.container.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
         this.dom.container.addEventListener('touchend', (e) => this.handleTouchEnd(e));
+
+        this.dom.gotoModal.addEventListener('click', (e) => {
+            if (e.target === this.dom.gotoModal) this.dom.gotoModal.classList.add('hidden');
+        });
+
+        this.dom.gotoInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') this.handleGotoPage();
+        });
 
         window.addEventListener('resize', () => {
             if(!this.dom.overlay.classList.contains('hidden') && this.pdfDoc) {
@@ -229,6 +247,27 @@ class FluxPdfViewer {
         this.state.isDrawingAnnotation = false;
         if(this.state.activePdfTool === 'select') {
             this.dom.container.style.cursor = 'default';
+        }
+    }
+
+    openGotoModal() {
+        if (!this.pdfDoc) return;
+        this.dom.gotoRangeText.textContent = `Inserisci un numero tra 1 e ${this.pdfDoc.numPages}`;
+        this.dom.gotoInput.value = this.pageNum;
+        this.dom.gotoInput.max = this.pdfDoc.numPages;
+        this.dom.gotoModal.classList.remove('hidden');
+        setTimeout(() => this.dom.gotoInput.select(), 100);
+    }
+
+    handleGotoPage() {
+        const targetPage = parseInt(this.dom.gotoInput.value);
+        if (targetPage >= 1 && targetPage <= this.pdfDoc.numPages) {
+            this.dom.gotoModal.classList.add('hidden');
+            if (targetPage !== this.pageNum) {
+                this.renderPage(targetPage);
+            }
+        } else {
+            alert(`Pagina non valida. Inserire un numero tra 1 e ${this.pdfDoc.numPages}`);
         }
     }
 

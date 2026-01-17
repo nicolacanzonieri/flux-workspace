@@ -470,6 +470,23 @@
             </div>
         </div>
 
+        <!-- GO TO PAGE MODAL -->
+    <div id="pdf-goto-modal" class="modal-overlay hidden">
+        <div class="modal-content small-modal">
+            <div class="modal-header">
+                <h2>Vai alla pagina</h2>
+                <button id="btn-close-goto" class="close-btn">×</button>
+            </div>
+            <div class="stroke-controls">
+                <div class="numeric-input-group">
+                    <input type="number" id="input-goto-page" min="1" value="1">
+                </div>
+                <p id="goto-page-range" style="font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;"></p>
+                <button id="btn-confirm-goto" class="flux-btn" style="margin-top: 15px; min-height: 44px; padding: 10px;">Vai</button>
+            </div>
+        </div>
+    </div>
+
         <!-- CANVAS -->
         <canvas id="flux-canvas" class="hidden"></canvas>
         
