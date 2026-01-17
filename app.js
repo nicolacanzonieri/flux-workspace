@@ -250,7 +250,7 @@ class FluxApp {
          * Location: inside bindEvents() method in app.js
          * Description: Passes the full element reference to the viewer to enable read/write of annotations.
          */
-        window.addEventListener('flux-pdf-preview', (e) => {
+        this.dom.canvas.addEventListener('flux-pdf-preview', (e) => {
             const el = e.detail.element;
             console.log("App received preview request for:", el.name);
             
