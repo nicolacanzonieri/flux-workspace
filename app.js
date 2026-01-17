@@ -245,10 +245,19 @@ class FluxApp {
              }
         });
 
+        // UPDATED: flux-pdf-preview event handler
         this.dom.canvas.addEventListener('flux-pdf-preview', (e) => {
             const el = e.detail.element;
             if (el && el.type === 'pdf' && this.pdfViewer) {
                 if (el.src) {
+                    // Hide the editing toolbar immediately when opening the viewer
+                    this.dom.editBar.classList.add('hidden');
+                    // Deselect elements on the whiteboard to keep the UI clean
+                    if(this.whiteboard) {
+                        this.whiteboard.interaction.selectedElements = [];
+                        this.whiteboard.render();
+                    }
+                    // Open the viewer
                     this.pdfViewer.open(el.src, el.name);
                 } else {
                     alert('Cannot read PDF data.');
@@ -388,7 +397,6 @@ class FluxApp {
 
         try {
             const zip = new JSZip();
-            // Data is already Base64 in this.project, so we just save the JSON
             const projectData = JSON.stringify(this.project, null, 2);
             const safeName = (this.project.name || "flux-project").replace(/[^a-z0-9]/gi, '_').toLowerCase();
             
@@ -424,7 +432,6 @@ class FluxApp {
         if (!file) return;
         const reader = new FileReader();
         reader.onload = (event) => {
-            // event.target.result is the Base64 Data URL
             this.whiteboard.addImage(event.target.result);
             this.selectTool('select');
         };
@@ -438,7 +445,6 @@ class FluxApp {
         
         const reader = new FileReader();
         reader.onload = (event) => {
-            // event.target.result is the Base64 Data URL
             this.whiteboard.addPDF(file.name, event.target.result);
             this.selectTool('select');
         };
@@ -551,7 +557,13 @@ class FluxApp {
     updateSelectedProperty(cb) { if(this.whiteboard) { this.whiteboard.saveHistory(); this.whiteboard.interaction.selectedElements.forEach(cb); this.whiteboard.render(); this.updateEditBar(); this.syncHistoryUI(); } }
 
     updateEditBar() {
-        if (this.state.editingElementId) { this.dom.editBar.classList.add('hidden'); return; }
+        // Safety check: if an element is being edited OR if the PDF viewer is open, the bar must stay hidden
+        const isPdfOpen = this.pdfViewer && !this.pdfViewer.dom.overlay.classList.contains('hidden');
+        if (this.state.editingElementId || isPdfOpen) { 
+            this.dom.editBar.classList.add('hidden'); 
+            return; 
+        }
+
         if(!this.whiteboard) return;
         const sel = this.whiteboard.interaction.selectedElements;
         if(sel.length > 0) {
@@ -637,7 +649,7 @@ class FluxApp {
         } else {
             this.dom.libViewBoards.classList.add('hidden');
             this.dom.libViewPdfs.classList.remove('hidden');
-            this.dom.libFooterBoards.classList.add('hidden'); // Hide "New Board" button
+            this.dom.libFooterBoards.classList.add('hidden'); 
             this.dom.libTitle.textContent = "Documents";
             this.dom.btnLibModeToggle.classList.add('active');
             this.renderPDFLibrary();
@@ -699,7 +711,7 @@ class FluxApp {
         this.dom.canvas.classList.remove('hidden');
         this.dom.toolbar.classList.remove('hidden'); 
         this.dom.btnHome.classList.remove('hidden');
-        this.dom.btnSave.classList.remove('hidden'); // Show Save Button
+        this.dom.btnSave.classList.remove('hidden'); 
         this.dom.libNav.classList.remove('hidden');
         if(this.whiteboard) this.whiteboard.resize();
         this.state.boardActive = true; this.renderLibrary();
@@ -723,13 +735,12 @@ class FluxApp {
         this.dom.toolbar.classList.add('hidden'); 
         this.dom.editBar.classList.add('hidden'); 
         this.dom.btnHome.classList.add('hidden');
-        this.dom.btnSave.classList.add('hidden'); // Show Save Button
+        this.dom.btnSave.classList.add('hidden'); 
         this.dom.libNav.classList.add('hidden'); 
         this.state.boardActive = false; 
         this.dom.menu.classList.remove('hidden'); 
         this.renderLibrary();
         
-        // ADDED: Close PDF viewer if open or minimized
         if (this.pdfViewer) {
             this.pdfViewer.close();
         }
@@ -740,7 +751,6 @@ class FluxApp {
 
 // REGISTER SERVICE WORKER
 if ('serviceWorker' in navigator) {
-    // Attempt to register the SW located at the root
     navigator.serviceWorker.register('./sw.js')
         .then(() => console.log('Flux Service Worker Registered'))
         .catch(err => console.error('Flux Service Worker Failed:', err));
