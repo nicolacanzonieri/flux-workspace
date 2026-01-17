@@ -1,7 +1,6 @@
 /**
  * @file pdf-viewer.js
- * @description Handles PDF rendering with "Fit to Screen" logic, boundary clamping, and smooth gestures.
- * Optimised sensitivity for snappy interactions.
+ * @description Handles PDF rendering, annotations (highlights/eraser), and interactive zoom/pan using dual canvas.
  */
 class FluxPdfViewer {
     constructor() {
@@ -9,18 +8,24 @@ class FluxPdfViewer {
             overlay: document.getElementById('pdf-viewer-overlay'),
             container: document.querySelector('.pdf-container'),
             wrapper: document.querySelector('.pdf-canvas-wrapper'),
+            
+            // Layer 1: PDF Content
             canvas: document.getElementById('pdf-render-canvas'),
             ctx: document.getElementById('pdf-render-canvas').getContext('2d'),
+            
+            // Layer 2: Annotations (Highlights & Selection Preview)
+            annotationCanvas: document.getElementById('pdf-annotation-canvas'),
+            annotationCtx: document.getElementById('pdf-annotation-canvas').getContext('2d'),
+            
             title: document.getElementById('pdf-viewer-title'),
             indicator: document.getElementById('pdf-page-indicator'),
             btnClose: document.getElementById('btn-close-pdf'),
             btnMinimize: document.getElementById('btn-minimize-pdf'),
             btnPrev: document.getElementById('btn-pdf-prev'),
             btnNext: document.getElementById('btn-pdf-next'),
-            
-            // New Pill Elements
             pill: document.getElementById('pdf-minimized-pill'),
-            pillTitle: document.getElementById('pdf-pill-title')
+            pillTitle: document.getElementById('pdf-pill-title'),
+            toolBtns: document.querySelectorAll('.pdf-tool-btn')
         };
         
         this.pdfDoc = null;
@@ -32,26 +37,30 @@ class FluxPdfViewer {
         // View State
         this.state = {
             zoom: 1,
-            minZoom: 0.1, // Will be calculated dynamically
+            minZoom: 0.1,
             maxZoom: 5,
             translateX: 0,
             translateY: 0,
+            activePdfTool: 'select', // 'select', 'highlighter', 'eraser'
             
-            // Interaction State
-            isDragging: false,
+            isDragging: false, // For panning
+            isDrawingAnnotation: false, // For highlighting/erasing
             lastMouseX: 0,
             lastMouseY: 0,
-            initialPinchDist: 0,
-            initialPinchZoom: 1,
             
-            // Base dimensions of the unscaled PDF page
-            baseWidth: 0,
+            annotationStart: { x: 0, y: 0 },
+            currentAnnotationRect: null,
+            
+            baseWidth: 0, // Unscaled PDF width
             baseHeight: 0,
-
-            // Balanced sensitivity settings
+            renderScale: 2.5, // High DPI factor
+            
             zoomSensitivity: 0.008, 
             panSensitivity: 1.1
         };
+
+        // Annotations Store: Array of objects { page: 1, x, y, w, h, type: 'highlight' }
+        this.annotations = []; 
 
         this.init();
     }
@@ -60,24 +69,25 @@ class FluxPdfViewer {
         this.dom.btnClose.addEventListener('click', () => this.close());
         this.dom.btnMinimize.addEventListener('click', () => this.minimize());
         this.dom.pill.addEventListener('click', () => this.restore());
-        
         this.dom.btnPrev.addEventListener('click', () => this.onPrevPage());
         this.dom.btnNext.addEventListener('click', () => this.onNextPage());
         
-        // Trackpad & Mouse Wheel (Zoom + Pan)
+        this.dom.toolBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                this.selectTool(btn.getAttribute('data-pdf-tool'));
+            });
+        });
+
+        // Event Listeners on Container
         this.dom.container.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
-        
-        // Mouse Drag Panning
         this.dom.container.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
-        window.addEventListener('mouseup', () => this.handleMouseUp());
+        window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
-        // Touch Gestures (Pinch + Pan)
         this.dom.container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
         this.dom.container.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
-        this.dom.container.addEventListener('touchend', () => this.handleTouchEnd());
+        this.dom.container.addEventListener('touchend', (e) => this.handleTouchEnd(e));
 
-        // Handle resize
         window.addEventListener('resize', () => {
             if(!this.dom.overlay.classList.contains('hidden') && this.pdfDoc) {
                 this.recalculateBounds();
@@ -85,16 +95,26 @@ class FluxPdfViewer {
         });
     }
 
+    selectTool(tool) {
+        this.state.activePdfTool = tool;
+        this.dom.toolBtns.forEach(btn => {
+            btn.classList.toggle('active', btn.getAttribute('data-pdf-tool') === tool);
+        });
+        this.state.isDragging = false;
+        this.state.isDrawingAnnotation = false;
+        this.dom.container.style.cursor = tool === 'select' ? 'default' : 'crosshair';
+        
+        // Redraw to remove potential eraser preview lines
+        this.drawAnnotations();
+    }
+
     async open(url, name) {
         this.fileName = name || "Document.pdf";
         this.dom.title.textContent = this.fileName;
         this.dom.pillTitle.textContent = this.fileName;
-        
-        // Ensure pill is hidden when opening fresh
         this.dom.pill.classList.add('hidden');
         this.dom.overlay.classList.remove('hidden');
         
-        // Reset state before loading
         this.state.translateX = 0;
         this.state.translateY = 0;
         this.state.zoom = 1;
@@ -114,7 +134,9 @@ class FluxPdfViewer {
         this.dom.overlay.classList.add('hidden');
         this.dom.pill.classList.add('hidden');
         this.pdfDoc = null;
+        this.annotations = []; 
         this.dom.ctx.clearRect(0, 0, this.dom.canvas.width, this.dom.canvas.height);
+        this.dom.annotationCtx.clearRect(0, 0, this.dom.annotationCanvas.width, this.dom.annotationCanvas.height);
     }
 
     minimize() {
@@ -125,102 +147,133 @@ class FluxPdfViewer {
     restore() {
         this.dom.pill.classList.add('hidden');
         this.dom.overlay.classList.remove('hidden');
-    }
-
-    // --- VIEW CALCULATION & BOUNDARIES ---
-
-    /**
-     * Calculates the minimum zoom needed to fit the page in the container
-     * and sets the initial view.
-     */
-    resetToFit() {
-        if (!this.state.baseWidth || !this.state.baseHeight) return;
-
-        const containerW = this.dom.container.clientWidth;
-        const containerH = this.dom.container.clientHeight;
-
-        // Calculate ratios
-        const scaleX = containerW / this.state.baseWidth;
-        const scaleY = containerH / this.state.baseHeight;
-        
-        // "Fit to screen" means the smaller of the two scales
-        // We reduce it slightly (0.95) to leave a small margin
-        const fitScale = Math.min(scaleX, scaleY) * 0.95;
-
-        this.state.minZoom = fitScale;
-        this.state.zoom = fitScale;
-        
-        // Center the view
-        this.state.translateX = 0;
-        this.state.translateY = 0;
-
-        this.applyTransform();
-    }
-
-    /**
-     * Called on window resize to ensure we don't lose the page
-     */
-    recalculateBounds() {
-        if (!this.state.baseWidth) return;
-        
-        // Recalculate min zoom based on new container size
-        const containerW = this.dom.container.clientWidth;
-        const containerH = this.dom.container.clientHeight;
-        const scaleX = containerW / this.state.baseWidth;
-        const scaleY = containerH / this.state.baseHeight;
-        this.state.minZoom = Math.min(scaleX, scaleY) * 0.95;
-
-        // If current zoom is less than new min, fix it
-        if (this.state.zoom < this.state.minZoom) {
-            this.state.zoom = this.state.minZoom;
+        if(this.pdfDoc) {
+            this.recalculateBounds();
         }
-
-        // Re-clamp coordinates
-        this.clampTranslation();
-        this.applyTransform();
     }
 
+    // --- COORDINATE MATH ---
+
     /**
-     * Ensures the PDF stays inside the viewport (no infinite scrolling).
-     * If content < viewport, it centers it.
-     * If content > viewport, it prevents edges from leaving the viewport.
+     * Converts screen client coordinates to PDF base coordinates (0 to baseWidth)
      */
-    clampTranslation() {
-        const currentW = this.state.baseWidth * this.state.zoom;
-        const currentH = this.state.baseHeight * this.state.zoom;
-        const containerW = this.dom.container.clientWidth;
-        const containerH = this.dom.container.clientHeight;
+    screenToBase(clientX, clientY) {
+        // We use the wrapper rectangle because it scales with CSS transform
+        const rect = this.dom.wrapper.getBoundingClientRect();
+        
+        // Coordinates relative to the wrapper visual size
+        const relX = clientX - rect.left;
+        const relY = clientY - rect.top;
+        
+        // Calculate the scale factor between visual pixels and PDF base points
+        const scaleX = this.state.baseWidth / rect.width;
+        const scaleY = this.state.baseHeight / rect.height;
 
-        // Helper to clamp a value between min and max
-        const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+        return { 
+            x: relX * scaleX, 
+            y: relY * scaleY 
+        };
+    }
 
-        // Horizontal Clamping
-        if (currentW <= containerW) {
-            // If content is smaller than container, force center
-            this.state.translateX = 0; 
+    // --- INTERACTION ---
+
+    handleMouseDown(e) {
+        if (e.button !== 0) return;
+
+        if (this.state.activePdfTool === 'select') {
+            // Pan logic
+            this.state.isDragging = true;
+            this.state.lastMouseX = e.clientX;
+            this.state.lastMouseY = e.clientY;
+            this.dom.container.style.cursor = 'grabbing';
         } else {
-            // If content is larger, allow panning but stop at edges
-            // Max positive translation (left edge aligns with left container)
-            const maxTx = (currentW - containerW) / 2;
-            // Min negative translation (right edge aligns with right container)
-            const minTx = -maxTx;
-            this.state.translateX = clamp(this.state.translateX, minTx, maxTx);
-        }
-
-        // Vertical Clamping
-        if (currentH <= containerH) {
-            this.state.translateY = 0;
-        } else {
-            const maxTy = (currentH - containerH) / 2;
-            const minTy = -maxTy;
-            this.state.translateY = clamp(this.state.translateY, minTy, maxTy);
+            // Draw logic (Highlighter / Eraser)
+            this.state.isDrawingAnnotation = true;
+            this.state.annotationStart = this.screenToBase(e.clientX, e.clientY);
+            // Initialize rect with 0 dimensions
+            this.state.currentAnnotationRect = { 
+                x: this.state.annotationStart.x, 
+                y: this.state.annotationStart.y, 
+                w: 0, 
+                h: 0 
+            };
         }
     }
 
-    applyTransform() {
-        // Apply transform via CSS.
-        // translate3d for GPU acceleration.
-        this.dom.wrapper.style.transform = `translate3d(${this.state.translateX}px, ${this.state.translateY}px, 0) scale(${this.state.zoom})`;
+    handleMouseMove(e) {
+        if (this.state.isDragging) {
+            // Panning
+            const dx = e.clientX - this.state.lastMouseX;
+            const dy = e.clientY - this.state.lastMouseY;
+            this.state.translateX += dx;
+            this.state.translateY += dy;
+            this.state.lastMouseX = e.clientX;
+            this.state.lastMouseY = e.clientY;
+            this.clampTranslation();
+            this.applyTransform();
+        } else if (this.state.isDrawingAnnotation) {
+            // Creating Selection Rectangle
+            const current = this.screenToBase(e.clientX, e.clientY);
+            this.state.currentAnnotationRect = {
+                x: Math.min(this.state.annotationStart.x, current.x),
+                y: Math.min(this.state.annotationStart.y, current.y),
+                w: Math.abs(current.x - this.state.annotationStart.x),
+                h: Math.abs(current.y - this.state.annotationStart.y)
+            };
+            this.drawAnnotations(); // Redraw canvas to show preview rectangle
+        }
+    }
+
+    handleMouseUp(e) {
+        if (this.state.isDrawingAnnotation) {
+            this.finalizeAnnotation();
+        }
+        this.state.isDragging = false;
+        this.state.isDrawingAnnotation = false;
+        if(this.state.activePdfTool === 'select') {
+            this.dom.container.style.cursor = 'default';
+        }
+    }
+
+    finalizeAnnotation() {
+        const rect = this.state.currentAnnotationRect;
+        // Ignore tiny accidental clicks
+        if (!rect || (rect.w < 1 && rect.h < 1)) {
+            this.state.currentAnnotationRect = null;
+            this.drawAnnotations();
+            return;
+        }
+
+        if (this.state.activePdfTool === 'highlighter') {
+            // Add new highlight
+            this.annotations.push({
+                page: this.pageNum,
+                x: rect.x,
+                y: rect.y,
+                w: rect.w,
+                h: rect.h,
+                type: 'highlight'
+            });
+        } else if (this.state.activePdfTool === 'eraser') {
+            // Remove intersecting highlights
+            this.annotations = this.annotations.filter(ann => {
+                if (ann.page !== this.pageNum) return true; // Keep other pages
+                
+                // Check intersection AABB
+                const noOverlap = (
+                    rect.x > ann.x + ann.w ||
+                    rect.x + rect.w < ann.x ||
+                    rect.y > ann.y + ann.h ||
+                    rect.y + rect.h < ann.y
+                );
+                
+                // Keep if NO overlap (intersection means delete)
+                return noOverlap;
+            });
+        }
+
+        this.state.currentAnnotationRect = null;
+        this.drawAnnotations();
     }
 
     // --- RENDERING ---
@@ -228,65 +281,102 @@ class FluxPdfViewer {
     async renderPage(num) {
         if (!this.pdfDoc) return;
         this.pageRendering = true;
-        
+        this.pageNum = num;
+
         const page = await this.pdfDoc.getPage(num);
         
-        // 1. Get the viewport at scale 1.0 to determine natural size (Points)
+        // Get natural dimensions
         const unscaledViewport = page.getViewport({ scale: 1 });
         this.state.baseWidth = unscaledViewport.width;
         this.state.baseHeight = unscaledViewport.height;
 
-        // 2. Render at High DPI (e.g., Scale 2.5) for crisp text when zoomed
-        // This affects the internal canvas pixels, not the CSS size
-        const renderScale = 2.5; 
+        // High DPI Render scale
+        const renderScale = this.state.renderScale; 
         const renderViewport = page.getViewport({ scale: renderScale });
-
+        
+        // 1. Setup PDF Canvas
         this.dom.canvas.height = renderViewport.height;
         this.dom.canvas.width = renderViewport.width;
-
-        // 3. Set the CSS size of the canvas to the BASE (natural) size
-        // The zoom transformation will act upon this base size
+        
+        // CSS Sizing (keeps high resolution internal)
         this.dom.canvas.style.width = `${this.state.baseWidth}px`;
         this.dom.canvas.style.height = `${this.state.baseHeight}px`;
 
-        const renderContext = {
-            canvasContext: this.dom.ctx,
-            viewport: renderViewport
-        };
-        
+        // 2. Setup Annotation Canvas (Exact match to PDF canvas)
+        this.dom.annotationCanvas.height = renderViewport.height;
+        this.dom.annotationCanvas.width = renderViewport.width;
+        this.dom.annotationCanvas.style.width = `${this.state.baseWidth}px`;
+        this.dom.annotationCanvas.style.height = `${this.state.baseHeight}px`;
+
         try {
-            await page.render(renderContext).promise;
+            await page.render({ canvasContext: this.dom.ctx, viewport: renderViewport }).promise;
             this.pageRendering = false;
             
-            // Once rendered, calculate the "Fit to Screen" zoom and apply boundaries
-            this.resetToFit(); 
-
+            // Only fit on first load or forced reset, otherwise keep zoom level
+            if(this.state.zoom === 1) this.resetToFit();
+            
+            this.drawAnnotations(); // Draw existing highlights
+            
             if (this.pageNumPending !== null) {
                 this.renderPage(this.pageNumPending);
                 this.pageNumPending = null;
             }
         } catch(e) {
-            console.error(e);
             this.pageRendering = false;
         }
-
         this.updatePaginationUI();
     }
 
-    // --- INTERACTION HANDLERS ---
+    drawAnnotations() {
+        if (!this.pdfDoc) return;
+        
+        const ctx = this.dom.annotationCtx;
+        const scale = this.state.renderScale; // 2.5
+        
+        // Clear entire annotation layer
+        ctx.clearRect(0, 0, this.dom.annotationCanvas.width, this.dom.annotationCanvas.height);
+        
+        // 1. Draw stored highlights for this page
+        this.annotations.forEach(ann => {
+            if (ann.page === this.pageNum && ann.type === 'highlight') {
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.4)'; // Transparent yellow
+                ctx.fillRect(ann.x * scale, ann.y * scale, ann.w * scale, ann.h * scale);
+            }
+        });
+
+        // 2. Draw current interaction rectangle (Preview)
+        const rect = this.state.currentAnnotationRect;
+        if (this.state.isDrawingAnnotation && rect) {
+            ctx.save();
+            if (this.state.activePdfTool === 'highlighter') {
+                ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
+                ctx.fillRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
+                // Optional border while drawing
+                ctx.strokeStyle = '#e6e600';
+                ctx.lineWidth = 1 * scale;
+                ctx.strokeRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
+            } else if (this.state.activePdfTool === 'eraser') {
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; // Red tint for deletion area
+                ctx.fillRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
+                ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
+                ctx.lineWidth = 2 * scale;
+                ctx.setLineDash([5 * scale, 5 * scale]);
+                ctx.strokeRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
+            }
+            ctx.restore();
+        }
+    }
+
+    // --- HELPER FUNCTIONS (Same as before) ---
 
     handleWheel(e) {
         e.preventDefault();
-        
         if (e.ctrlKey) {
-            // Pinch-to-zoom (Trackpad)
-            // Use exponent to smooth out delta values
             const zoomFactor = Math.exp(-e.deltaY * 0.01);
             this.zoomAtPoint(zoomFactor, e.clientX, e.clientY);
         } else {
-            // Pan (Trackpad 2-finger scroll or Mouse Wheel)
-            this.state.translateX -= e.deltaX * this.state.panSensitivity;
-            this.state.translateY -= e.deltaY * this.state.panSensitivity;
+            this.state.translateX -= e.deltaX;
+            this.state.translateY -= e.deltaY;
             this.clampTranslation();
             this.applyTransform();
         }
@@ -294,136 +384,82 @@ class FluxPdfViewer {
 
     zoomAtPoint(factor, clientX, clientY) {
         const oldZoom = this.state.zoom;
-        let newZoom = oldZoom * factor;
-
-        // Enforce Min/Max Zoom
-        newZoom = Math.max(this.state.minZoom, Math.min(newZoom, this.state.maxZoom));
-        
+        let newZoom = Math.max(this.state.minZoom, Math.min(oldZoom * factor, this.state.maxZoom));
         if (newZoom === oldZoom) return;
-
-        // Calculate mouse position relative to the container center
         const rect = this.dom.container.getBoundingClientRect();
-        const centerX = rect.width / 2;
-        const centerY = rect.height / 2;
-        
-        // Mouse offset from center
-        const mouseX = clientX - rect.left - centerX;
-        const mouseY = clientY - rect.top - centerY;
-
-        // Determine how much the "world" under the mouse moves due to zoom change
-        // We need to adjust translate so the point under mouse stays stationary
-        // Formula: NewTx = Mouse - (Mouse - OldTx) * (NewZoom / OldZoom)
-        // Simplified relative to center:
-        // tx -= (mouseX - tx) * (scaleChange - 1)
-        
+        const mouseX = clientX - rect.left - rect.width / 2;
+        const mouseY = clientY - rect.top - rect.height / 2;
         const scaleChange = newZoom / oldZoom;
         this.state.translateX -= (mouseX - this.state.translateX) * (scaleChange - 1);
         this.state.translateY -= (mouseY - this.state.translateY) * (scaleChange - 1);
-        
         this.state.zoom = newZoom;
         this.clampTranslation();
         this.applyTransform();
     }
 
-    handleMouseDown(e) {
-        if (e.button !== 0) return;
-        this.state.isDragging = true;
-        this.state.lastMouseX = e.clientX;
-        this.state.lastMouseY = e.clientY;
-        this.dom.container.style.cursor = 'grabbing';
+    clampTranslation() {
+        const currentW = this.state.baseWidth * this.state.zoom;
+        const currentH = this.state.baseHeight * this.state.zoom;
+        const containerW = this.dom.container.clientWidth;
+        const containerH = this.dom.container.clientHeight;
+        const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+        if (currentW <= containerW) this.state.translateX = 0;
+        else { const maxTx = (currentW - containerW) / 2; this.state.translateX = clamp(this.state.translateX, -maxTx, maxTx); }
+        if (currentH <= containerH) this.state.translateY = 0;
+        else { const maxTy = (currentH - containerH) / 2; this.state.translateY = clamp(this.state.translateY, -maxTy, maxTy); }
     }
 
-    handleMouseMove(e) {
-        if (!this.state.isDragging) return;
-        const dx = e.clientX - this.state.lastMouseX;
-        const dy = e.clientY - this.state.lastMouseY;
-        
-        this.state.translateX += dx * this.state.panSensitivity;
-        this.state.translateY += dy * this.state.panSensitivity;
-        this.state.lastMouseX = e.clientX;
-        this.state.lastMouseY = e.clientY;
-        
-        this.clampTranslation();
+    applyTransform() {
+        this.dom.wrapper.style.transform = `translate3d(${this.state.translateX}px, ${this.state.translateY}px, 0) scale(${this.state.zoom})`;
+    }
+
+    resetToFit() {
+        if (!this.state.baseWidth) return;
+        const scale = Math.min(this.dom.container.clientWidth / this.state.baseWidth, this.dom.container.clientHeight / this.state.baseHeight) * 0.95;
+        this.state.minZoom = scale;
+        this.state.zoom = scale;
+        this.state.translateX = 0;
+        this.state.translateY = 0;
         this.applyTransform();
     }
 
-    handleMouseUp() {
-        this.state.isDragging = false;
-        this.dom.container.style.cursor = 'default';
+    recalculateBounds() {
+        if (!this.state.baseWidth) return;
+        this.state.minZoom = Math.min(this.dom.container.clientWidth / this.state.baseWidth, this.dom.container.clientHeight / this.state.baseHeight) * 0.95;
+        if (this.state.zoom < this.state.minZoom) this.state.zoom = this.state.minZoom;
+        this.clampTranslation(); this.applyTransform();
     }
 
     handleTouchStart(e) {
-        if (e.touches.length === 1) {
-            this.state.isDragging = true;
-            this.state.lastMouseX = e.touches[0].clientX;
-            this.state.lastMouseY = e.touches[0].clientY;
-        } else if (e.touches.length === 2) {
-            e.preventDefault();
+        if (e.touches.length === 1) this.handleMouseDown(e.touches[0]);
+        else if (e.touches.length === 2) {
             this.state.isDragging = false;
-            this.state.initialPinchDist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
+            this.state.isDrawingAnnotation = false;
+            this.state.initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             this.state.initialPinchZoom = this.state.zoom;
         }
     }
 
     handleTouchMove(e) {
         e.preventDefault();
-        if (e.touches.length === 1 && this.state.isDragging) {
-            const dx = e.touches[0].clientX - this.state.lastMouseX;
-            const dy = e.touches[0].clientY - this.state.lastMouseY;
-            
-            this.state.translateX += dx * this.state.panSensitivity;
-            this.state.translateY += dy * this.state.panSensitivity;
-            this.state.lastMouseX = e.touches[0].clientX;
-            this.state.lastMouseY = e.touches[0].clientY;
-            
-            this.clampTranslation();
-            this.applyTransform();
-        } else if (e.touches.length === 2) {
-            const dist = Math.hypot(
-                e.touches[0].clientX - e.touches[1].clientX,
-                e.touches[0].clientY - e.touches[1].clientY
-            );
-            
-            const factor = dist / this.state.initialPinchDist;
-            
-            // Calculate midpoint of fingers
+        if (e.touches.length === 1) this.handleMouseMove(e.touches[0]);
+        else if (e.touches.length === 2) {
+            const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-
-            const targetZoom = this.state.initialPinchZoom * factor;
-            
-            // Apply zoom targeting the center of the pinch
-            // Calculate effective factor relative to current state
-            const relativeFactor = targetZoom / this.state.zoom;
-            this.zoomAtPoint(relativeFactor, centerX, centerY);
+            this.zoomAtPoint(dist / this.state.initialPinchDist / (this.state.zoom / this.state.initialPinchZoom), centerX, centerY);
         }
     }
 
-    handleTouchEnd() {
-        this.state.isDragging = false;
-    }
+    handleTouchEnd(e) { this.handleMouseUp(e); }
 
-    onPrevPage() {
-        if (this.pageNum <= 1 || this.pageRendering) return;
-        this.pageNum--;
-        this.renderPage(this.pageNum); // renderPage calls resetToFit internally
-    }
-
-    onNextPage() {
-        if (this.pageNum >= this.pdfDoc.numPages || this.pageRendering) return;
-        this.pageNum++;
-        this.renderPage(this.pageNum);
-    }
+    onPrevPage() { if (this.pageNum > 1 && !this.pageRendering) this.renderPage(this.pageNum - 1); }
+    onNextPage() { if (this.pageNum < this.pdfDoc.numPages && !this.pageRendering) this.renderPage(this.pageNum + 1); }
 
     updatePaginationUI() {
         if(!this.pdfDoc) return;
         this.dom.indicator.textContent = `${this.pageNum} / ${this.pdfDoc.numPages}`;
         this.dom.btnPrev.disabled = this.pageNum <= 1;
         this.dom.btnNext.disabled = this.pageNum >= this.pdfDoc.numPages;
-        this.dom.btnPrev.style.opacity = this.pageNum <= 1 ? 0.3 : 1;
-        this.dom.btnNext.style.opacity = this.pageNum >= this.pdfDoc.numPages ? 0.3 : 1;
     }
 }
