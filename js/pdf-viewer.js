@@ -178,19 +178,16 @@ class FluxPdfViewer {
     // --- INTERACTION ---
 
     handleMouseDown(e) {
-        if (e.button !== 0) return;
+        if (e.button !== undefined && e.button !== 0) return;
 
         if (this.state.activePdfTool === 'select') {
-            // Pan logic
             this.state.isDragging = true;
             this.state.lastMouseX = e.clientX;
             this.state.lastMouseY = e.clientY;
             this.dom.container.style.cursor = 'grabbing';
         } else {
-            // Draw logic (Highlighter / Eraser)
             this.state.isDrawingAnnotation = true;
             this.state.annotationStart = this.screenToBase(e.clientX, e.clientY);
-            // Initialize rect with 0 dimensions
             this.state.currentAnnotationRect = { 
                 x: this.state.annotationStart.x, 
                 y: this.state.annotationStart.y, 
@@ -431,8 +428,9 @@ class FluxPdfViewer {
     }
 
     handleTouchStart(e) {
-        if (e.touches.length === 1) this.handleMouseDown(e.touches[0]);
-        else if (e.touches.length === 2) {
+        if (e.touches.length === 1) {
+            this.handleMouseDown(e.touches[0]);
+        } else if (e.touches.length === 2) {
             this.state.isDragging = false;
             this.state.isDrawingAnnotation = false;
             this.state.initialPinchDist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
@@ -441,13 +439,18 @@ class FluxPdfViewer {
     }
 
     handleTouchMove(e) {
-        e.preventDefault();
-        if (e.touches.length === 1) this.handleMouseMove(e.touches[0]);
-        else if (e.touches.length === 2) {
+        if (e.cancelable) e.preventDefault();
+
+        if (e.touches.length === 1) {
+            this.handleMouseMove(e.touches[0]);
+        } else if (e.touches.length === 2) {
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            this.zoomAtPoint(dist / this.state.initialPinchDist / (this.state.zoom / this.state.initialPinchZoom), centerX, centerY);
+            
+            if (this.state.initialPinchDist) {
+                this.zoomAtPoint(dist / this.state.initialPinchDist / (this.state.zoom / this.state.initialPinchZoom), centerX, centerY);
+            }
         }
     }
 
