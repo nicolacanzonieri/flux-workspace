@@ -255,16 +255,13 @@ class FluxApp {
             console.log("App received preview request for:", el.name);
             
             if (el && el.type === 'pdf' && this.pdfViewer) {
-                // 1. Hide editing toolbar
                 this.dom.editBar.classList.add('hidden');
                 
-                // 2. Deselect elements on whiteboard
                 if(this.whiteboard) {
                     this.whiteboard.interaction.selectedElements = [];
                     this.whiteboard.render();
                 }
 
-                // 3. Open viewer passing the full element reference
                 if (el.src) {
                     this.pdfViewer.open(el);
                 } else {
