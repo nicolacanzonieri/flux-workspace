@@ -1,6 +1,6 @@
 /**
- * @file pdf-viewer.js
- * @description Handles PDF rendering, annotations (highlights/eraser), and interactive zoom/pan using dual canvas.
+ * @file js/pdf-viewer.js
+ * @description Updates to ensure persistence across board switching using ID lookup.
  */
 class FluxPdfViewer {
     constructor() {
@@ -39,8 +39,7 @@ class FluxPdfViewer {
         this.pageNumPending = null;
         this.fileName = "Document.pdf";
 
-        // Reference to the source element on the whiteboard
-        this.activeElement = null;
+        this.elementId = null;
 
         // View State
         this.state = {
@@ -110,12 +109,42 @@ class FluxPdfViewer {
         });
     }
 
+    /**
+     * @method saveAnnotations
+     * @description Saves annotations to the global project state by ID search.
+     * This ensures data is saved even if the board containing the PDF is not active.
+     */
     saveAnnotations() {
-        if (this.activeElement) {
-            // Deep copy current annotations back to the whiteboard element
-            this.activeElement.annotations = JSON.parse(JSON.stringify(this.annotations));
-            console.log("Annotations saved to element:", this.activeElement.id);
+        if (!this.elementId || !window.flux) return;
+
+        // Create a deep copy of current annotations
+        const newAnnotations = JSON.parse(JSON.stringify(this.annotations));
+        let savedCount = 0;
+
+        // 1. Update the PROJECT DATA (Source of Truth)
+        // We search through all boards in the project to find the element
+        if (window.flux.project && window.flux.project.boards) {
+            window.flux.project.boards.forEach(board => {
+                const targetElement = board.elements.find(el => el.id === this.elementId);
+                if (targetElement) {
+                    targetElement.annotations = newAnnotations;
+                    savedCount++;
+                }
+            });
         }
+
+        // 2. Update the ACTIVE CANVAS (Visual State)
+        // If the board containing the PDF is currently open, we must update the live element
+        // otherwise saving the project later might overwrite our changes with stale canvas data.
+        if (window.flux.whiteboard) {
+            const liveElement = window.flux.whiteboard.elements.find(el => el.id === this.elementId);
+            if (liveElement) {
+                liveElement.annotations = newAnnotations;
+                savedCount++;
+            }
+        }
+
+        console.log(`PDF Annotations saved. Updated ${savedCount} references for ID: ${this.elementId}`);
     }
 
     selectTool(tool) {
@@ -127,12 +156,10 @@ class FluxPdfViewer {
         this.state.isDrawingAnnotation = false;
         this.dom.container.style.cursor = tool === 'select' ? 'default' : 'crosshair';
         
-        // Redraw to remove potential eraser preview lines
         this.drawAnnotations();
     }
 
     async open(element) {
-        // Validation
         if (!element || !element.src) {
             console.error("Invalid PDF element passed to open()");
             return;
@@ -140,24 +167,20 @@ class FluxPdfViewer {
 
         console.log("PDF Viewer: Opening", element.name);
         
-        // Store reference and load data
-        this.activeElement = element;
+        this.elementId = element.id;
         this.fileName = element.name || "Document.pdf";
         
-        // Load existing annotations from the element (or empty array if new)
-        // Deep copy to prevent direct mutation until save
+        // Load existing annotations
         this.annotations = element.annotations ? JSON.parse(JSON.stringify(element.annotations)) : [];
 
         // Update UI
         this.dom.title.textContent = this.fileName;
         this.dom.pillTitle.textContent = this.fileName;
         
-        // Force visibility
         this.dom.overlay.classList.remove('hidden');
         this.dom.overlay.style.display = 'flex';
         this.dom.pill.classList.add('hidden');
         
-        // Reset View
         this.state.translateX = 0;
         this.state.translateY = 0;
         this.state.zoom = 1;
@@ -186,7 +209,7 @@ class FluxPdfViewer {
         // Reset local state
         this.pdfDoc = null;
         this.annotations = []; 
-        this.activeElement = null; // Detach reference
+        this.elementId = null; // Clear ID
         
         this.dom.ctx.clearRect(0, 0, this.dom.canvas.width, this.dom.canvas.height);
         this.dom.annotationCtx.clearRect(0, 0, this.dom.annotationCanvas.width, this.dom.annotationCanvas.height);
@@ -235,7 +258,6 @@ class FluxPdfViewer {
 
     handleMouseDown(e) {
         if (e.button !== undefined && e.button !== 0) return;
-
         if (this.state.activePdfTool === 'select') {
             this.state.isDragging = true;
             this.state.lastMouseX = e.clientX;
@@ -255,7 +277,6 @@ class FluxPdfViewer {
 
     handleMouseMove(e) {
         if (this.state.isDragging) {
-            // Panning
             const dx = e.clientX - this.state.lastMouseX;
             const dy = e.clientY - this.state.lastMouseY;
             this.state.translateX += dx;
@@ -265,7 +286,6 @@ class FluxPdfViewer {
             this.clampTranslation();
             this.applyTransform();
         } else if (this.state.isDrawingAnnotation) {
-            // Creating Selection Rectangle
             const current = this.screenToBase(e.clientX, e.clientY);
             this.state.currentAnnotationRect = {
                 x: Math.min(this.state.annotationStart.x, current.x),
@@ -273,19 +293,15 @@ class FluxPdfViewer {
                 w: Math.abs(current.x - this.state.annotationStart.x),
                 h: Math.abs(current.y - this.state.annotationStart.y)
             };
-            this.drawAnnotations(); // Redraw canvas to show preview rectangle
+            this.drawAnnotations();
         }
     }
 
     handleMouseUp(e) {
-        if (this.state.isDrawingAnnotation) {
-            this.finalizeAnnotation();
-        }
+        if (this.state.isDrawingAnnotation) this.finalizeAnnotation();
         this.state.isDragging = false;
         this.state.isDrawingAnnotation = false;
-        if(this.state.activePdfTool === 'select') {
-            this.dom.container.style.cursor = 'default';
-        }
+        if(this.state.activePdfTool === 'select') this.dom.container.style.cursor = 'default';
     }
 
     openGotoModal() {
@@ -430,7 +446,7 @@ class FluxPdfViewer {
                 ctx.lineWidth = 1 * scale;
                 ctx.strokeRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
             } else if (this.state.activePdfTool === 'eraser') {
-                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)'; // Red tint for deletion area
+                ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
                 ctx.fillRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
                 ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
                 ctx.lineWidth = 2 * scale;
@@ -441,7 +457,7 @@ class FluxPdfViewer {
         }
     }
 
-    // --- HELPER FUNCTIONS (Same as before) ---
+    // --- HELPER FUNCTIONS ---
 
     handleWheel(e) {
         e.preventDefault();
@@ -517,14 +533,12 @@ class FluxPdfViewer {
 
     handleTouchMove(e) {
         if (e.cancelable) e.preventDefault();
-
         if (e.touches.length === 1) {
             this.handleMouseMove(e.touches[0]);
         } else if (e.touches.length === 2) {
             const dist = Math.hypot(e.touches[0].clientX - e.touches[1].clientX, e.touches[0].clientY - e.touches[1].clientY);
             const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
             const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-            
             if (this.state.initialPinchDist) {
                 this.zoomAtPoint(dist / this.state.initialPinchDist / (this.state.zoom / this.state.initialPinchZoom), centerX, centerY);
             }
