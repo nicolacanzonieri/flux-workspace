@@ -99,7 +99,8 @@ class FluxApp {
             pickingMode: 'stroke',
             activeBoardId: null,
             editingElementId: null,
-            libraryMode: 'boards' // 'boards' or 'pdfs'
+            libraryMode: 'boards',
+            dragSrcId: null 
         };
 
         this.project = {
@@ -608,9 +609,18 @@ class FluxApp {
 
     renderLibrary() {
         this.dom.libBoardList.innerHTML = '';
-        this.project.boards.forEach(board => {
+        
+        // Controllo di sicurezza: se project.boards non esiste, fermati
+        if (!this.project || !this.project.boards) return;
+
+        this.project.boards.forEach((board) => {
             const item = document.createElement('div');
-            item.className = `library-item ${board.id === this.state.activeBoardId ? 'active' : ''}`;
+            // Usa l'ID per gestire la classe attiva
+            const isActive = this.state.activeBoardId === board.id;
+            item.className = `library-item ${isActive ? 'active' : ''}`;
+            
+            item.draggable = true;
+            
             item.innerHTML = `
                 <div class="lib-item-info">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h20"/><path d="M21 3v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V3"/><path d="m7 21 5-5 5 5"/></svg>
@@ -625,21 +635,64 @@ class FluxApp {
                     </button>
                 </div>
             `;
-            item.querySelector('.lib-item-info').addEventListener('click', () => { this.switchToBoard(board.id); this.dom.libPopup.classList.add('hidden'); });
+
+            // DRAG & DROP LOGIC
+            item.addEventListener('dragstart', (e) => {
+                this.state.dragSrcId = board.id;
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                this.state.dragSrcId = null;
+            });
+
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+
+            item.addEventListener('drop', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const srcId = this.state.dragSrcId;
+                const targetId = board.id;
+
+                if (srcId && srcId !== targetId) {
+                    const srcIndex = this.project.boards.findIndex(b => b.id == srcId);
+                    const targetIndex = this.project.boards.findIndex(b => b.id == targetId);
+
+                    if (srcIndex > -1 && targetIndex > -1) {
+                        const [movedBoard] = this.project.boards.splice(srcIndex, 1);
+                        this.project.boards.splice(targetIndex, 0, movedBoard);
+                        this.renderLibrary();
+                    }
+                }
+            });
+
+            // STANDARD EVENTS
+            item.querySelector('.lib-item-info').addEventListener('click', () => { 
+                this.switchToBoard(board.id); 
+                this.dom.libPopup.classList.add('hidden'); 
+            });
+            
             item.querySelector('.rename').addEventListener('click', (e) => {
                 e.stopPropagation();
                 const newName = prompt("Rename Board", board.name);
                 if(newName && newName.trim() !== "") { board.name = newName.trim(); this.renderLibrary(); }
             });
+            
             item.querySelector('.delete').addEventListener('click', (e) => {
                 e.stopPropagation();
                 if(confirm(`Are you sure you want to delete "${board.name}"?`)) {
                     this.project.boards = this.project.boards.filter(b => b.id !== board.id);
                     if (this.project.boards.length === 0) this.returnToHome();
-                    else if(this.state.activeBoardId === board.id) this.switchToBoard(this.project.boards[this.project.boards.length - 1].id);
+                    else if(this.state.activeBoardId === board.id) this.switchToBoard(this.project.boards[0].id);
                     else this.renderLibrary();
                 }
             });
+
             this.dom.libBoardList.appendChild(item);
         });
     }
@@ -652,18 +705,23 @@ class FluxApp {
             this.dom.libFooterBoards.classList.remove('hidden');
             this.dom.libTitle.textContent = "Library";
             this.dom.btnLibModeToggle.classList.remove('active');
+            
+            this.renderLibrary(); 
         } else {
             this.dom.libViewBoards.classList.add('hidden');
             this.dom.libViewPdfs.classList.remove('hidden');
             this.dom.libFooterBoards.classList.add('hidden'); 
             this.dom.libTitle.textContent = "Documents";
             this.dom.btnLibModeToggle.classList.add('active');
+            
             this.renderPDFLibrary();
         }
     }
 
     renderPDFLibrary() {
         this.dom.libPdfList.innerHTML = '';
+        
+        // Controllo sicurezza: se whiteboard non esiste, esci
         if (!this.whiteboard) return;
 
         const pdfs = this.whiteboard.elements.filter(el => el.type === 'pdf');
@@ -676,12 +734,53 @@ class FluxApp {
         pdfs.forEach(pdf => {
             const item = document.createElement('div');
             item.className = 'library-item';
+            item.draggable = true;
+
             item.innerHTML = `
                 <div class="lib-item-info">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text-icon lucide-file-text"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
                     <span>${pdf.name}</span>
                 </div>
             `;
+
+            // DRAG & DROP PDF
+            item.addEventListener('dragstart', (e) => {
+                this.state.dragSrcId = pdf.id;
+                item.classList.add('dragging');
+                e.dataTransfer.effectAllowed = 'move';
+            });
+
+            item.addEventListener('dragend', () => {
+                item.classList.remove('dragging');
+                this.state.dragSrcId = null;
+            });
+
+            item.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+            });
+
+            item.addEventListener('drop', (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const srcId = this.state.dragSrcId;
+                const targetId = pdf.id;
+
+                if (srcId && srcId !== targetId) {
+                    const allElements = this.whiteboard.elements;
+                    const srcIndex = allElements.findIndex(el => el.id == srcId);
+                    const targetIndex = allElements.findIndex(el => el.id == targetId);
+
+                    if (srcIndex > -1 && targetIndex > -1) {
+                        this.whiteboard.saveHistory();
+                        const [movedPDF] = allElements.splice(srcIndex, 1);
+                        allElements.splice(targetIndex, 0, movedPDF);
+                        this.renderPDFLibrary();
+                        this.whiteboard.render();
+                    }
+                }
+            });
+
             item.addEventListener('click', () => {
                 if (this.whiteboard) {
                     this.whiteboard.view.offsetX = window.innerWidth / 2 - (pdf.x + pdf.width/2) * this.whiteboard.view.scale;
@@ -690,6 +789,7 @@ class FluxApp {
                     this.dom.libPopup.classList.add('hidden');
                 }
             });
+
             this.dom.libPdfList.appendChild(item);
         });
     }

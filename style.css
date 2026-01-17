@@ -161,11 +161,19 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .library-item { 
     display: flex; align-items: center; justify-content: space-between;
     padding: 8px 10px; border-radius: 14px; color: var(--text-primary); 
+    cursor: grab;
     transition: all 0.2s; 
 }
 .library-item:hover { background: rgba(255, 255, 255, 0.05); }
 .library-item.active { background: var(--btn-hover-bg); }
 .library-item.active .lib-item-info { color: var(--accent-color); }
+.library-item:active { cursor: grabbing; }
+
+.library-item.dragging {
+    opacity: 0.5;
+    background: var(--btn-hover-bg);
+    border: 1px dashed var(--accent-color);
+}
 
 .lib-item-info {
     display: flex; align-items: center; gap: 10px; flex: 1;
