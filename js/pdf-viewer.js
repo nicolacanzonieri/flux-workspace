@@ -322,6 +322,7 @@ class FluxPdfViewer {
 
     openGotoModal() {
         if (!this.pdfDoc) return;
+        this.dom.gotoModal.style.zIndex = 7000;
         this.dom.gotoRangeText.textContent = `Inserisci un numero tra 1 e ${this.pdfDoc.numPages}`;
         this.dom.gotoInput.value = this.pageNum;
         this.dom.gotoInput.max = this.pdfDoc.numPages;
