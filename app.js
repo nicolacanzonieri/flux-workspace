@@ -592,8 +592,12 @@ class FluxApp {
                 this.dom.colorOptEmpty.style.display = isS ? 'flex' : 'none';
                 if(!isT && !isI && !isP) this.syncStrokeUI(el.strokeWidth || el.width || 3);
                 if(isS) this.syncPickerButtonAppearance(this.dom.btnFillPicker, el.fillColor, el.isAutoFill);
-                if(!isI && !isP) this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
-                else this.dom.btnColorPicker.style.display = 'none'; 
+                if (!isI && !isP) {
+                    this.dom.btnColorPicker.style.display = 'flex'; 
+                    this.syncPickerButtonAppearance(this.dom.btnColorPicker, el.color, el.isAutoColor);
+                } else {
+                    this.dom.btnColorPicker.style.display = 'none'; 
+                }
             }
         } else this.dom.editBar.classList.add('hidden');
     }
