@@ -248,15 +248,14 @@ class FluxApp {
 
         /**
          * LISTENER: flux-pdf-preview
-         * Location: inside bindEvents() method in app.js
          * Description: Passes the full element reference to the viewer to enable read/write of annotations.
          */
         this.dom.canvas.addEventListener('flux-pdf-preview', (e) => {
             const el = e.detail.element;
-            console.log("App received preview request for:", el.name);
             
             if (el && el.type === 'pdf' && this.pdfViewer) {
                 this.dom.editBar.classList.add('hidden');
+                this.dom.toolbar.classList.add('hidden');
                 
                 if(this.whiteboard) {
                     this.whiteboard.interaction.selectedElements = [];
@@ -265,9 +264,6 @@ class FluxApp {
 
                 if (el.src) {
                     this.pdfViewer.open(el);
-                } else {
-                    console.error("Error: PDF file has no valid data (missing src)");
-                    alert("Cannot open PDF: Data is missing.");
                 }
             }
         });
@@ -471,9 +467,11 @@ class FluxApp {
         if (!el || el.type !== 'text') return;
         this.state.editingElementId = el.id;
         this.dom.mdInput.value = el.content;
+        
         this.dom.editorOverlay.classList.remove('hidden');
         this.dom.editBar.classList.add('hidden');
         this.dom.toolbar.classList.add('hidden');
+        
         setTimeout(() => this.dom.mdInput.focus(), 100);
     }
 
@@ -525,11 +523,15 @@ class FluxApp {
         if (!el || el.type !== 'text') return;
         this.state.editingElementId = el.id;
         let content = el.content;
-        if (content.startsWith('$$') && content.endsWith('$$')) content = content.substring(2, content.length - 2).trim();
+        if (content.startsWith('$$') && content.endsWith('$$')) {
+            content = content.substring(2, content.length - 2).trim();
+        }
         this.dom.formulaInput.value = content;
+        
         this.dom.formulaOverlay.classList.remove('hidden');
         this.dom.editBar.classList.add('hidden');
         this.dom.toolbar.classList.add('hidden');
+        
         setTimeout(() => this.dom.formulaInput.focus(), 100);
     }
 

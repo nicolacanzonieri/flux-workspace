@@ -165,6 +165,10 @@ class FluxPdfViewer {
             return;
         }
 
+        if(this.dom.overlay.parentElement) {
+            document.body.appendChild(this.dom.overlay);
+        }
+
         console.log("PDF Viewer: Opening", element.name);
         
         this.elementId = element.id;
@@ -223,9 +227,21 @@ class FluxPdfViewer {
         this.dom.pill.classList.remove('hidden');
     }
 
+    /**
+     * @method restore
+     * @description Restores the PDF viewer from its minimized state.
+     */
     restore() {
+        if(this.dom.overlay.parentElement) {
+            document.body.appendChild(this.dom.overlay);
+        }
+        
         this.dom.pill.classList.add('hidden');
         this.dom.overlay.classList.remove('hidden');
+
+        // Force the display style to ensure it occupies the screen
+        this.dom.overlay.style.display = 'flex';
+
         if(this.pdfDoc) {
             this.recalculateBounds();
         }
