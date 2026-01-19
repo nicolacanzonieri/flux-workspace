@@ -15,6 +15,8 @@ class FluxPdfViewer {
             annotationCanvas: document.getElementById('pdf-annotation-canvas'),
             annotationCtx: document.getElementById('pdf-annotation-canvas').getContext('2d'),
             
+            bottomToolbar: document.getElementById('toolbar'),
+
             title: document.getElementById('pdf-viewer-title'),
             indicator: document.getElementById('pdf-page-indicator'),
             btnClose: document.getElementById('btn-close-pdf'),
@@ -225,6 +227,7 @@ class FluxPdfViewer {
 
         this.dom.overlay.classList.add('hidden');
         this.dom.pill.classList.remove('hidden');
+        this.dom.bottomToolbar.classList.remove('hidden');
     }
 
     /**
