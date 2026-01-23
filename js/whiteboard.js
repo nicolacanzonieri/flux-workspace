@@ -208,34 +208,115 @@ class FluxWhiteboard {
     addLine(color) {
         this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newLine = { id: Date.now(), type: 'line', p1: { x: center.x - 50, y: center.y }, p2: { x: center.x + 50, y: center.y }, color, isAutoColor: true, width: 3, dashStyle: 'solid', arrowStart: false, arrowEnd: false };
-        this.elements.push(newLine); this.interaction.selectedElements = [newLine]; this.render(); if(window.flux) window.flux.updateEditBar();
+        const newLine = { 
+            id: Date.now(), 
+            type: 'line', 
+            p1: { x: center.x - 50, y: center.y }, 
+            p2: { x: center.x + 50, y: center.y }, 
+            color, 
+            isAutoColor: true, 
+            width: 3, 
+            dashStyle: 'solid', 
+            arrowStart: false, 
+            arrowEnd: false 
+        };
+
+        this.elements.push(newLine); 
+        this.interaction.selectedElements = [newLine]; 
+        this.render(); 
+        
+        if(window.flux) window.flux.updateEditBar();
     }
 
     startPath(color) {
-        const newLine = { id: Date.now(), type: 'pen', points: [], color, isAutoColor: true, width: 3, dashStyle: 'solid' };
-        this.elements.push(newLine); this.interaction.draggedElement = newLine; this.interaction.isDrawingPath = true;
+        const newLine = { 
+            id: Date.now(), 
+            type: 'pen', 
+            points: [], 
+            color, 
+            isAutoColor: true, 
+            width: 3, 
+            dashStyle: 
+            'solid' 
+        };
+        
+        this.elements.push(newLine); 
+        this.interaction.draggedElement = newLine; 
+        this.interaction.isDrawingPath = true;
     }
 
     addShape(shapeType, color) {
         this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newShape = { id: Date.now(), type: 'shape', shapeType, x: center.x - 100, y: center.y - 100, width: 200, height: 200, color, fillColor: 'transparent', isAutoColor: true, isAutoFill: false, strokeWidth: 3, dashStyle: 'solid' };
-        this.elements.push(newShape); this.interaction.selectedElements = [newShape]; this.render(); if(window.flux) window.flux.updateEditBar();
+        const newShape = { 
+            id: Date.now(), 
+            type: 'shape', 
+            shapeType, 
+            x: center.x - 100, 
+            y: center.y - 100, 
+            width: 200, 
+            height: 200, 
+            color, 
+            fillColor: 'transparent', 
+            isAutoColor: true, 
+            isAutoFill: false, 
+            strokeWidth: 3, 
+            dashStyle: 'solid' 
+        };
+        
+        this.elements.push(newShape); 
+        this.interaction.selectedElements = [newShape]; 
+        this.render(); 
+        
+        if(window.flux) window.flux.updateEditBar();
     }
 
     addText(color) {
         this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newText = { id: Date.now(), type: 'text', content: "# New Text\nType **Markdown** or $LaTeX$ here...", x: center.x - 125, y: center.y - 75, width: 250, height: 150, color, isAutoColor: true, fontSize: 16, renderedImage: null };
-        this.elements.push(newText); this.interaction.selectedElements = [newText]; this.render(); if(window.flux) window.flux.updateEditBar();
+        const newText = { 
+            id: Date.now(), 
+            type: 'text', 
+            content: "# New Text\nType **Markdown** or $LaTeX$ here...", 
+            x: center.x - 125, 
+            y: center.y - 75, 
+            width: 250, 
+            height: 150, 
+            color, 
+            isAutoColor: true, 
+            fontSize: 16, 
+            renderedImage: null 
+        };
+
+        this.elements.push(newText); 
+        this.interaction.selectedElements = [newText]; 
+        this.render(); 
+        
+        if(window.flux) window.flux.updateEditBar();
     }
 
     addFormula(color) {
         this.saveHistory();
         const center = this.screenToWorld(window.innerWidth / 2, window.innerHeight / 2);
-        const newFormula = { id: Date.now(), type: 'text', content: "$$ x = 0 $$", x: center.x - 100, y: center.y - 50, width: 200, height: 100, color, isAutoColor: true, fontSize: 16, renderedImage: null };
-        this.elements.push(newFormula); this.interaction.selectedElements = [newFormula]; this.render(); if(window.flux) window.flux.updateEditBar();
+        const newFormula = { 
+            id: Date.now(), 
+            type: 'text', 
+            content: "$$ x = 0 $$", 
+            x: center.x - 100, 
+            y: center.y - 50, 
+            width: 200, 
+            height: 100, 
+            color, 
+            isAutoColor: true, 
+            fontSize: 16, 
+            renderedImage: null 
+        };
+        
+        this.elements.push(newFormula); 
+        this.interaction.selectedElements = [newFormula]; 
+        this.render(); 
+        
+        if(window.flux) window.flux.updateEditBar();
     }
 
     addImage(src) {
