@@ -885,7 +885,17 @@ class FluxWhiteboard {
             this.renderPDFToImage(el);
         }
 
-        if (isSelected) this.drawSelectionBox(sPos, sW, sH, el);
+        if (isSelected) {
+            this.ctx.lineWidth = 1;
+            this.ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--accent-color');
+            this.ctx.setLineDash([5, 5]);
+            this.ctx.strokeRect(sPos.x, sPos.y, sW, sH);
+            this.ctx.setLineDash([]);
+            this.getElementHandles(el).forEach(h => {
+                const sh = this.worldToScreen(h.x, h.y);
+                this.drawHandle(sh.x, sh.y, getComputedStyle(document.body).getPropertyValue('--accent-color'));
+            });
+        }
     }
 
     /**
@@ -900,7 +910,7 @@ class FluxWhiteboard {
         const fontFamily = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
         const isLight = document.body.classList.contains('light-mode');
         
-        // Inline styles for SVG
+        // Colors derived from main CSS logic but inline for SVG
         const bgColor = isLight ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 255, 255, 0.03)";
         const borderColor = isLight ? "rgba(0, 0, 0, 0.1)" : "rgba(255, 255, 255, 0.1)";
         const textColor = isLight ? "#1a1a1d" : "#ffffff";
@@ -909,32 +919,71 @@ class FluxWhiteboard {
         // Dynamic scaling of UI elements inside SVG based on size
         const baseWidth = 310;
         const scale = el.width / baseWidth;
+        
         const fontSize = 14 * scale;
+        const btnFontSize = 11 * scale;
+        const paddingY = 12 * scale;
+        const paddingX = 16 * scale;
+        const gap = 14 * scale;
         const iconSize = 32 * scale;
+        const iconWrapperSize = 40 * scale;
         const borderRadius = 18 * scale;
+        const btnPaddingY = 6 * scale;
+        const btnPaddingX = 16 * scale;
+        const btnBorderRadius = 8 * scale;
+        const borderWidth = Math.max(1, 1 * scale); // Ensure at least 1px
 
         const svgString = `
         <svg xmlns="http://www.w3.org/2000/svg" width="${el.width}" height="${el.height}">
             <foreignObject width="100%" height="100%">
                 <div xmlns="http://www.w3.org/1999/xhtml" style="
                     font-family: ${fontFamily};
-                    width: 100%; height: 100%;
-                    display: flex; align-items: center;
+                    width: 100%;
+                    height: 100%;
+                    display: flex;
+                    align-items: center;
                     background: ${bgColor};
-                    border: ${Math.max(1, 1 * scale)}px solid ${borderColor};
+                    border: ${borderWidth}px solid ${borderColor};
                     border-radius: ${borderRadius}px;
-                    padding: ${12 * scale}px ${16 * scale}px;
-                    box-sizing: border-box; gap: ${14 * scale}px;
+                    padding: ${paddingY}px ${paddingX}px;
+                    box-sizing: border-box;
+                    gap: ${gap}px;
                     overflow: hidden;
                 ">
-                    <div style="display:flex;justify-content:center;align-items:center;width:${40*scale}px;color:${textColor}">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                    <style>
+                        .icon-wrapper {
+                            display: flex; align-items: center; justify-content: center;
+                            background: transparent; height: 100%; width: ${iconWrapperSize}px;
+                            flex-shrink: 0; color: ${textColor};
+                        }
+                        .content {
+                            display: flex; flex-direction: column; justify-content: center;
+                            gap: ${7 * scale}px; overflow: hidden; flex: 1;
+                        }
+                        .title {
+                            color: ${textColor}; font-size: ${fontSize}px; font-weight: 500;
+                            margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+                        }
+                        .btn {
+                            background: transparent; color: ${btnColor};
+                            border: ${borderWidth}px solid ${isLight ? 'rgba(0,0,0,0.3)' : 'rgba(255,255,255,0.3)'};
+                            border-radius: ${btnBorderRadius}px; padding: ${btnPaddingY}px ${btnPaddingX}px;
+                            font-size: ${btnFontSize}px; font-weight: 600; text-transform: uppercase;
+                            letter-spacing: ${0.6 * scale}px; width: fit-content;
+                        }
+                    </style>
+                    <div class="icon-wrapper">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="${iconSize}" height="${iconSize}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/>
+                            <path d="M14 2v5a1 1 0 0 0 1 1h5"/>
+                            <path d="M10 9H8"/>
+                            <path d="M16 13H8"/>
+                            <path d="M16 17H8"/>
                         </svg>
                     </div>
-                    <div style="display:flex;flex-direction:column;justify-content:center;gap:${7 * scale}px;overflow:hidden;flex:1">
-                        <div style="color:${textColor};font-size:${fontSize}px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${el.name}</div>
-                        <div style="background:transparent;color:${btnColor};border:1px solid rgba(127,127,127,0.3);border-radius:${8*scale}px;padding:${6*scale}px ${16*scale}px;font-size:${11*scale}px;font-weight:600;text-transform:uppercase;width:fit-content">Preview</div>
+                    <div class="content">
+                        <div class="title">${el.name}</div>
+                        <div class="btn">Preview</div>
                     </div>
                 </div>
             </foreignObject>
