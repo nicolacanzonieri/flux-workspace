@@ -1,6 +1,11 @@
 /**
- * @file js/pdf-viewer.js
- * @description Updates to ensure persistence across board switching using ID lookup.
+ * @class FluxPdfViewer
+ * @description Manages the PDF overlay interface.
+ * Features:
+ * - PDF Rendering using pdf.js
+ * - Pagination and Zoom
+ * - Annotation System (Highlight, Eraser)
+ * - ID-based persistence to ensure annotations are saved to the correct Project Board element.
  */
 class FluxPdfViewer {
     constructor() {
@@ -9,14 +14,17 @@ class FluxPdfViewer {
             container: document.querySelector('.pdf-container'),
             wrapper: document.querySelector('.pdf-canvas-wrapper'),
             
+            // Layer 1: The rendered PDF Page
             canvas: document.getElementById('pdf-render-canvas'),
             ctx: document.getElementById('pdf-render-canvas').getContext('2d'),
             
+            // Layer 2: Annotations (Canvas overlay)
             annotationCanvas: document.getElementById('pdf-annotation-canvas'),
             annotationCtx: document.getElementById('pdf-annotation-canvas').getContext('2d'),
             
             bottomToolbar: document.getElementById('toolbar'),
 
+            // UI Controls
             title: document.getElementById('pdf-viewer-title'),
             indicator: document.getElementById('pdf-page-indicator'),
             btnClose: document.getElementById('btn-close-pdf'),
@@ -27,7 +35,7 @@ class FluxPdfViewer {
             pillTitle: document.getElementById('pdf-pill-title'),
             toolBtns: document.querySelectorAll('.pdf-tool-btn'),
 
-            // Modal elements
+            // Goto Page Modal
             gotoModal: document.getElementById('pdf-goto-modal'),
             gotoInput: document.getElementById('input-goto-page'),
             gotoConfirm: document.getElementById('btn-confirm-goto'),
@@ -41,9 +49,10 @@ class FluxPdfViewer {
         this.pageNumPending = null;
         this.fileName = "Document.pdf";
 
+        // Reference to the whiteboard element ID to save data back
         this.elementId = null;
 
-        // View State
+        // Viewport & Interaction State
         this.state = {
             zoom: 1,
             minZoom: 0.1,
@@ -59,7 +68,7 @@ class FluxPdfViewer {
             currentAnnotationRect: null,
             baseWidth: 0, 
             baseHeight: 0,
-            renderScale: 2.5, 
+            renderScale: 2.5,  // High DPI rendering
             zoomSensitivity: 0.008, 
             panSensitivity: 1.1,
             initialPinchDist: 0,
@@ -71,39 +80,45 @@ class FluxPdfViewer {
     }
 
     init() {
+        // UI Bindings
         this.dom.btnClose.addEventListener('click', () => this.close());
         this.dom.btnMinimize.addEventListener('click', () => this.minimize());
         this.dom.pill.addEventListener('click', () => this.restore());
         this.dom.btnPrev.addEventListener('click', () => this.onPrevPage());
         this.dom.btnNext.addEventListener('click', () => this.onNextPage());
+        
+        // Goto Page Modal
         this.dom.indicator.addEventListener('click', () => this.openGotoModal());
         this.dom.gotoClose.addEventListener('click', () => this.dom.gotoModal.classList.add('hidden'));
         this.dom.gotoConfirm.addEventListener('click', () => this.handleGotoPage());
         
+        // Tool Selection
         this.dom.toolBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 this.selectTool(btn.getAttribute('data-pdf-tool'));
             });
         });
 
-        // Event Listeners on Container
+        // Mouse Events
         this.dom.container.addEventListener('wheel', (e) => this.handleWheel(e), { passive: false });
         this.dom.container.addEventListener('mousedown', (e) => this.handleMouseDown(e));
         window.addEventListener('mousemove', (e) => this.handleMouseMove(e));
         window.addEventListener('mouseup', (e) => this.handleMouseUp(e));
 
+        // Touch Events
         this.dom.container.addEventListener('touchstart', (e) => this.handleTouchStart(e), { passive: false });
         this.dom.container.addEventListener('touchmove', (e) => this.handleTouchMove(e), { passive: false });
         this.dom.container.addEventListener('touchend', (e) => this.handleTouchEnd(e));
 
+        // Modal inputs
         this.dom.gotoModal.addEventListener('click', (e) => {
             if (e.target === this.dom.gotoModal) this.dom.gotoModal.classList.add('hidden');
         });
-
         this.dom.gotoInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') this.handleGotoPage();
         });
 
+        // Auto-recalculate bounds on window resize
         window.addEventListener('resize', () => {
             if(!this.dom.overlay.classList.contains('hidden') && this.pdfDoc) {
                 this.recalculateBounds();
@@ -113,8 +128,8 @@ class FluxPdfViewer {
 
     /**
      * @method saveAnnotations
-     * @description Saves annotations to the global project state by ID search.
-     * This ensures data is saved even if the board containing the PDF is not active.
+     * @description Saves current annotations back to the global Project state.
+     * Uses ID lookup to find the correct element even if it's on a background board.
      */
     saveAnnotations() {
         if (!this.elementId || !window.flux) return;
@@ -124,7 +139,6 @@ class FluxPdfViewer {
         let savedCount = 0;
 
         // 1. Update the PROJECT DATA (Source of Truth)
-        // We search through all boards in the project to find the element
         if (window.flux.project && window.flux.project.boards) {
             window.flux.project.boards.forEach(board => {
                 const targetElement = board.elements.find(el => el.id === this.elementId);
@@ -136,8 +150,6 @@ class FluxPdfViewer {
         }
 
         // 2. Update the ACTIVE CANVAS (Visual State)
-        // If the board containing the PDF is currently open, we must update the live element
-        // otherwise saving the project later might overwrite our changes with stale canvas data.
         if (window.flux.whiteboard) {
             const liveElement = window.flux.whiteboard.elements.find(el => el.id === this.elementId);
             if (liveElement) {
@@ -161,12 +173,18 @@ class FluxPdfViewer {
         this.drawAnnotations();
     }
 
+    /**
+     * @method open
+     * @description Loads a PDF element into the viewer.
+     * @param {Object} element - The PDF element object from the whiteboard.
+     */
     async open(element) {
         if (!element || !element.src) {
             console.error("Invalid PDF element passed to open()");
             return;
         }
 
+        // Ensure overlay is in the DOM
         if(this.dom.overlay.parentElement) {
             document.body.appendChild(this.dom.overlay);
         }
@@ -176,7 +194,7 @@ class FluxPdfViewer {
         this.elementId = element.id;
         this.fileName = element.name || "Document.pdf";
         
-        // Load existing annotations
+        // Load existing annotations or init empty
         this.annotations = element.annotations ? JSON.parse(JSON.stringify(element.annotations)) : [];
 
         // Update UI
@@ -187,6 +205,7 @@ class FluxPdfViewer {
         this.dom.overlay.style.display = 'flex';
         this.dom.pill.classList.add('hidden');
         
+        // Reset View
         this.state.translateX = 0;
         this.state.translateY = 0;
         this.state.zoom = 1;
@@ -206,43 +225,31 @@ class FluxPdfViewer {
     }
 
     close() {
-        // Save changes before closing
         this.saveAnnotations();
-
         this.dom.overlay.classList.add('hidden');
         this.dom.pill.classList.add('hidden');
         
-        // Reset local state
+        // Cleanup
         this.pdfDoc = null;
         this.annotations = []; 
-        this.elementId = null; // Clear ID
-        
+        this.elementId = null;
         this.dom.ctx.clearRect(0, 0, this.dom.canvas.width, this.dom.canvas.height);
         this.dom.annotationCtx.clearRect(0, 0, this.dom.annotationCanvas.width, this.dom.annotationCanvas.height);
     }
 
     minimize() {
-        // Save changes before minimizing
         this.saveAnnotations();
-
         this.dom.overlay.classList.add('hidden');
         this.dom.pill.classList.remove('hidden');
         this.dom.bottomToolbar.classList.remove('hidden');
     }
 
-    /**
-     * @method restore
-     * @description Restores the PDF viewer from its minimized state.
-     */
     restore() {
         if(this.dom.overlay.parentElement) {
             document.body.appendChild(this.dom.overlay);
         }
-        
         this.dom.pill.classList.add('hidden');
         this.dom.overlay.classList.remove('hidden');
-
-        // Force the display style to ensure it occupies the screen
         this.dom.overlay.style.display = 'flex';
 
         if(this.pdfDoc) {
@@ -253,13 +260,14 @@ class FluxPdfViewer {
     // --- COORDINATE MATH ---
 
     /**
-     * Converts screen client coordinates to PDF base coordinates (0 to baseWidth)
+     * @method screenToBase
+     * @description Converts screen client coordinates to PDF base coordinates (0 to baseWidth).
+     * Compensates for CSS Scale and Translate transforms.
      */
     screenToBase(clientX, clientY) {
-        // We use the wrapper rectangle because it scales with CSS transform
         const rect = this.dom.wrapper.getBoundingClientRect();
         
-        // Coordinates relative to the wrapper visual size
+        // Relative to the wrapper visual size
         const relX = clientX - rect.left;
         const relY = clientY - rect.top;
         
@@ -273,16 +281,19 @@ class FluxPdfViewer {
         };
     }
 
-    // --- INTERACTION ---
+    // --- MOUSE INTERACTION ---
 
     handleMouseDown(e) {
         if (e.button !== undefined && e.button !== 0) return;
+        
         if (this.state.activePdfTool === 'select') {
+            // Pan Mode
             this.state.isDragging = true;
             this.state.lastMouseX = e.clientX;
             this.state.lastMouseY = e.clientY;
             this.dom.container.style.cursor = 'grabbing';
         } else {
+            // Annotation Mode
             this.state.isDrawingAnnotation = true;
             this.state.annotationStart = this.screenToBase(e.clientX, e.clientY);
             this.state.currentAnnotationRect = { 
@@ -365,11 +376,10 @@ class FluxPdfViewer {
                 type: 'highlight'
             });
         } else if (this.state.activePdfTool === 'eraser') {
-            // Remove intersecting highlights
+            // Remove intersecting highlights (AABB check)
             this.annotations = this.annotations.filter(ann => {
-                if (ann.page !== this.pageNum) return true; // Keep other pages
+                if (ann.page !== this.pageNum) return true; 
                 
-                // Check intersection AABB
                 const noOverlap = (
                     rect.x > ann.x + ann.w ||
                     rect.x + rect.w < ann.x ||
@@ -377,7 +387,6 @@ class FluxPdfViewer {
                     rect.y + rect.h < ann.y
                 );
                 
-                // Keep if NO overlap (intersection means delete)
                 return noOverlap;
             });
         }
@@ -395,24 +404,22 @@ class FluxPdfViewer {
 
         const page = await this.pdfDoc.getPage(num);
         
-        // Get natural dimensions
+        // 1. Calculate natural dimensions
         const unscaledViewport = page.getViewport({ scale: 1 });
         this.state.baseWidth = unscaledViewport.width;
         this.state.baseHeight = unscaledViewport.height;
 
-        // High DPI Render scale
+        // 2. High DPI Render scale setup
         const renderScale = this.state.renderScale; 
         const renderViewport = page.getViewport({ scale: renderScale });
         
-        // 1. Setup PDF Canvas
+        // 3. Setup PDF Canvas
         this.dom.canvas.height = renderViewport.height;
         this.dom.canvas.width = renderViewport.width;
-        
-        // CSS Sizing (keeps high resolution internal)
         this.dom.canvas.style.width = `${this.state.baseWidth}px`;
         this.dom.canvas.style.height = `${this.state.baseHeight}px`;
 
-        // 2. Setup Annotation Canvas (Exact match to PDF canvas)
+        // 4. Setup Annotation Canvas (Overlay)
         this.dom.annotationCanvas.height = renderViewport.height;
         this.dom.annotationCanvas.width = renderViewport.width;
         this.dom.annotationCanvas.style.width = `${this.state.baseWidth}px`;
@@ -422,10 +429,10 @@ class FluxPdfViewer {
             await page.render({ canvasContext: this.dom.ctx, viewport: renderViewport }).promise;
             this.pageRendering = false;
             
-            // Only fit on first load or forced reset, otherwise keep zoom level
+            // Auto-fit only on initial load
             if(this.state.zoom === 1) this.resetToFit();
             
-            this.drawAnnotations(); // Draw existing highlights
+            this.drawAnnotations();
             
             if (this.pageNumPending !== null) {
                 this.renderPage(this.pageNumPending);
@@ -441,9 +448,9 @@ class FluxPdfViewer {
         if (!this.pdfDoc) return;
         
         const ctx = this.dom.annotationCtx;
-        const scale = this.state.renderScale; // 2.5
+        const scale = this.state.renderScale; // e.g. 2.5
         
-        // Clear entire annotation layer
+        // Clear
         ctx.clearRect(0, 0, this.dom.annotationCanvas.width, this.dom.annotationCanvas.height);
         
         // 1. Draw stored highlights for this page
@@ -461,7 +468,6 @@ class FluxPdfViewer {
             if (this.state.activePdfTool === 'highlighter') {
                 ctx.fillStyle = 'rgba(255, 255, 0, 0.4)';
                 ctx.fillRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
-                // Optional border while drawing
                 ctx.strokeStyle = '#e6e600';
                 ctx.lineWidth = 1 * scale;
                 ctx.strokeRect(rect.x * scale, rect.y * scale, rect.w * scale, rect.h * scale);
@@ -481,10 +487,12 @@ class FluxPdfViewer {
 
     handleWheel(e) {
         e.preventDefault();
+        // Zoom on Ctrl+Wheel
         if (e.ctrlKey) {
             const zoomFactor = Math.exp(-e.deltaY * 0.01);
             this.zoomAtPoint(zoomFactor, e.clientX, e.clientY);
         } else {
+            // Pan
             this.state.translateX -= e.deltaX;
             this.state.translateY -= e.deltaY;
             this.clampTranslation();
@@ -496,12 +504,16 @@ class FluxPdfViewer {
         const oldZoom = this.state.zoom;
         let newZoom = Math.max(this.state.minZoom, Math.min(oldZoom * factor, this.state.maxZoom));
         if (newZoom === oldZoom) return;
+        
         const rect = this.dom.container.getBoundingClientRect();
         const mouseX = clientX - rect.left - rect.width / 2;
         const mouseY = clientY - rect.top - rect.height / 2;
+        
+        // Adjust translation to keep point under mouse
         const scaleChange = newZoom / oldZoom;
         this.state.translateX -= (mouseX - this.state.translateX) * (scaleChange - 1);
         this.state.translateY -= (mouseY - this.state.translateY) * (scaleChange - 1);
+        
         this.state.zoom = newZoom;
         this.clampTranslation();
         this.applyTransform();
@@ -512,9 +524,13 @@ class FluxPdfViewer {
         const currentH = this.state.baseHeight * this.state.zoom;
         const containerW = this.dom.container.clientWidth;
         const containerH = this.dom.container.clientHeight;
+        
         const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
+        
+        // Center if smaller than viewport, else clamp edges
         if (currentW <= containerW) this.state.translateX = 0;
         else { const maxTx = (currentW - containerW) / 2; this.state.translateX = clamp(this.state.translateX, -maxTx, maxTx); }
+        
         if (currentH <= containerH) this.state.translateY = 0;
         else { const maxTy = (currentH - containerH) / 2; this.state.translateY = clamp(this.state.translateY, -maxTy, maxTy); }
     }
@@ -525,6 +541,7 @@ class FluxPdfViewer {
 
     resetToFit() {
         if (!this.state.baseWidth) return;
+        // Fit within container with margin
         const scale = Math.min(this.dom.container.clientWidth / this.state.baseWidth, this.dom.container.clientHeight / this.state.baseHeight) * 0.95;
         this.state.minZoom = scale;
         this.state.zoom = scale;
@@ -540,6 +557,8 @@ class FluxPdfViewer {
         this.clampTranslation(); this.applyTransform();
     }
 
+    // --- TOUCH HANDLERS ---
+    
     handleTouchStart(e) {
         if (e.touches.length === 1) {
             this.handleMouseDown(e.touches[0]);

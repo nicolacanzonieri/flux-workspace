@@ -1,3 +1,10 @@
+/**
+ * @file sw.js
+ * @description Service Worker for Flux Workspace.
+ * Handles offline caching of core assets and libraries (KaTeX, PDF.js).
+ * Uses a "Stale-While-Revalidate" strategy for assets.
+ */
+
 const CACHE_NAME = 'flux-core-v3';
 const ASSETS = [
     './', 
@@ -10,7 +17,7 @@ const ASSETS = [
     './js/pdf-viewer.js',
     './js/shortcuts.js',
     
-    // Libraries
+    // External Libraries (Local)
     './lib/katex/katex.min.css',
     './lib/katex/katex.min.js',
     './lib/marked/marked.min.js',
@@ -18,7 +25,7 @@ const ASSETS = [
     './lib/pdfjs/pdf.worker.min.js',
     './lib/jszip/jszip.min.js',
     
-    // KaTeX Fonts (Full list from your structure)
+    // KaTeX Fonts (Essential for math rendering)
     './lib/katex/fonts/KaTeX_AMS-Regular.ttf',
     './lib/katex/fonts/KaTeX_AMS-Regular.woff',
     './lib/katex/fonts/KaTeX_AMS-Regular.woff2',
@@ -81,6 +88,7 @@ const ASSETS = [
     './lib/katex/fonts/KaTeX_Typewriter-Regular.woff2'
 ];
 
+// --- INSTALL EVENT ---
 self.addEventListener('install', evt => {
     evt.waitUntil(
         caches.open(CACHE_NAME)
@@ -89,9 +97,11 @@ self.addEventListener('install', evt => {
             return cache.addAll(ASSETS);
         })
     );
+    // Activate immediately
     self.skipWaiting();
 });
 
+// --- ACTIVATE EVENT ---
 self.addEventListener('activate', evt => {
     evt.waitUntil(
         caches.keys().then(keys =>
@@ -104,27 +114,37 @@ self.addEventListener('activate', evt => {
     self.clients.claim();
 });
 
-// Fetch: Strategy Stale-While-Revalidate
+// --- FETCH EVENT ---
 self.addEventListener('fetch', evt => {
+    // Only handle GET requests
     if (evt.request.method !== 'GET') return;
 
     evt.respondWith(
         caches.match(evt.request).then(cachedResponse => {
+            // Strategy: Network First, fallback to Cache? 
+            // Current Logic: Cache First, but update cache in background (Stale-while-revalidate hybrid)
+            
             const fetchPromise = fetch(evt.request).then(networkResponse => {
+                // Check if valid response
                 if (!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-                    // Skip caching opaque responses if needed, or handle errors
-                } else {
-                    const responseToCache = networkResponse.clone();
-                    caches.open(CACHE_NAME).then(cache => {
-                        cache.put(evt.request, responseToCache);
-                    });
+                    return networkResponse;
                 }
+                
+                // Update cache
+                const responseToCache = networkResponse.clone();
+                caches.open(CACHE_NAME).then(cache => {
+                    cache.put(evt.request, responseToCache);
+                });
+                
                 return networkResponse;
             }).catch(() => {
-                // Network failed
+                // Network failed, nothing specific needed if handled by cache logic below
             });
+
+            // Return cached response if available, otherwise wait for network
             return cachedResponse || fetchPromise;
         }).catch(() => {
+            // Fallback for navigation requests
             if (evt.request.mode === 'navigate') {
                 return caches.match('./offline.html');
             }

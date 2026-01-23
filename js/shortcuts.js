@@ -1,35 +1,47 @@
 /**
  * @file shortcuts.js
  * @description Handles global keyboard shortcuts for the Flux application.
- * Maps keys to FluxApp controller methods.
+ * This module listens to 'keydown' events and maps specific key combinations
+ * to FluxApp controller methods.
+ * 
+ * SHORTCUT MAP:
+ * - Cmd/Ctrl + Enter: Save & Close Editor (Markdown/Formula)
+ * - Cmd/Ctrl + S: Save Project
+ * - Cmd/Ctrl + L: Toggle Library
+ * - Cmd/Ctrl + D: Duplicate Selected
+ * - Arrow Keys: PDF Navigation (if open)
+ * - Escape: Close PDF Viewer
+ * - Backspace/Delete: Delete Selected Elements
+ * - 1, 2, 3: Tool selection (Select, Pan, Pen)
+ * - L, S, T, E, I: Quick tool selection (Line, Shape, Text, Equation, Image)
  */
 
 document.addEventListener('keydown', (e) => {
-    // Ensure the app is initialized
+    // Ensure the app is initialized and attached to the window
     const app = window.flux;
     if (!app || !app.state.isReady) return;
 
     // --- CONTEXT CHECK ---
-    
-    // Check if the user is currently typing in an input field, textarea, or contentEditable element.
+    // Detect if the user is interacting with a text input field to avoid
+    // triggering shortcuts while typing (e.g. pressing 'L' in a text box).
     const target = e.target;
     const isTyping = target.tagName === 'INPUT' || 
                      target.tagName === 'TEXTAREA' || 
                      target.isContentEditable;
 
-    // Detect Command (Mac) or Control (Windows/Linux)
+    // Detect platform-agnostic modifier key (Command on Mac, Control on Win/Linux)
     const isCmdOrCtrl = e.metaKey || e.ctrlKey;
 
     // --- 1. EDITOR SHORTCUTS (Cmd/Ctrl + Enter) ---
-    // These must work even if focused inside the textarea
+    // These specific shortcuts must work EVEN IF the user is typing in a textarea.
     if (isCmdOrCtrl && e.key === 'Enter') {
-        // Check if Markdown Editor is open
+        // Case A: Markdown Editor is open
         if (!app.dom.editorOverlay.classList.contains('hidden')) {
             e.preventDefault();
             app.saveAndCloseMarkdownEditor();
             return;
         }
-        // Check if Formula/LaTeX Editor is open
+        // Case B: Formula/LaTeX Editor is open
         if (!app.dom.formulaOverlay.classList.contains('hidden')) {
             e.preventDefault();
             app.saveAndCloseFormulaEditor();
@@ -37,11 +49,11 @@ document.addEventListener('keydown', (e) => {
         }
     }
 
-    // --- 2. GLOBAL SHORTCUTS (Modifiers) ---
-
+    // --- 2. GLOBAL SYSTEM SHORTCUTS ---
+    
     // Save Project (Cmd/Ctrl + S)
     if (isCmdOrCtrl && (e.key === 's' || e.key === 'S')) {
-        e.preventDefault(); // Prevent browser "Save Page"
+        e.preventDefault(); // Prevent browser "Save Page" dialog
         if (app.state.boardActive) {
             app.downloadProjectZip();
         }
@@ -50,22 +62,22 @@ document.addEventListener('keydown', (e) => {
 
     // Open/Toggle Library (Cmd/Ctrl + L)
     if (isCmdOrCtrl && (e.key === 'l' || e.key === 'L')) {
-        e.preventDefault(); // Prevent browser "Open Location"
+        e.preventDefault(); // Prevent browser location bar focus
         app.dom.libPopup.classList.toggle('hidden');
         return;
     }
 
-    // Duplicate Selected (Cmd/Ctrl + D)
+    // Duplicate Selected Element (Cmd/Ctrl + D)
     if (isCmdOrCtrl && (e.key === 'd' || e.key === 'D')) {
-        e.preventDefault(); // Prevent browser "Add Bookmark"
+        e.preventDefault(); // Prevent browser bookmark dialog
         if (app.state.boardActive && !isTyping) {
             app.whiteboard.duplicateSelected();
         }
         return;
     }
 
-    // --- 3. PDF VIEWER SHORTCUTS ---
-    // These work only if the PDF viewer is open and the user isn't typing elsewhere
+    // --- 3. PDF VIEWER CONTEXT SHORTCUTS ---
+    // These apply only when the PDF viewer overlay is visible.
     const isPdfOpen = app.pdfViewer && !app.pdfViewer.dom.overlay.classList.contains('hidden');
     if (isPdfOpen && !isTyping) {
         if (e.key === 'ArrowRight') {
@@ -85,8 +97,8 @@ document.addEventListener('keydown', (e) => {
         }
     }
 
-    // --- 4. SINGLE KEY SHORTCUTS ---
-    // If typing inside an input/textarea, we STOP here to allow natural typing
+    // --- 4. SINGLE KEY TOOL SHORTCUTS ---
+    // If the user is typing in a text field, we stop here to allow normal input.
     if (isTyping) return;
 
     // Delete Selected (Backspace or Delete)
@@ -97,7 +109,8 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
-    // Tool Shortcuts (active only if no modifiers are pressed)
+    // Tool Shortcuts (only active if no modifiers are pressed)
+    // Prevents conflict with browser shortcuts like Ctrl+T (New Tab).
     if (!app.state.boardActive || isCmdOrCtrl || e.altKey || e.shiftKey) return;
 
     switch (e.key.toLowerCase()) {
@@ -115,7 +128,7 @@ document.addEventListener('keydown', (e) => {
             app.createLineAction();
             break;
         case 's':
-            // S = Shape Tool (Opens modal)
+            // S = Shape Tool (Opens selection modal)
             app.dom.shapesModal.classList.remove('hidden');
             break;
         case 't':
@@ -127,7 +140,7 @@ document.addEventListener('keydown', (e) => {
             app.createFormulaAction();
             break;
         case 'i':
-            // I = Image Tool
+            // I = Image Tool (Triggers file picker)
             app.createImageAction();
             break;
     }

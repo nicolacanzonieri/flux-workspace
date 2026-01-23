@@ -1,9 +1,16 @@
 /**
  * @class FluxApp
- * @description Main controller for the Flux Workspace application.
+ * @description Main Application Controller for Flux Workspace.
+ * Orchestrates:
+ * - UI State Management (Menus, Modals, Toolbars)
+ * - Project Logic (Loading, Saving, Boards management)
+ * - Library System (Drag and Drop of boards/PDFs)
+ * - Editors Integration (Markdown, LaTeX)
+ * - Theme & Settings
  */
 class FluxApp {
     constructor() {
+        // Cache DOM elements for performance
         this.dom = {
             splash: document.getElementById('splash-screen'),
             app: document.getElementById('app'),
@@ -14,20 +21,21 @@ class FluxApp {
             toolbar: document.getElementById('toolbar'),
             editBar: document.getElementById('edit-bar'),
             
+            // Buttons
             btnNew: document.getElementById('btn-new-board'),
             btnOpen: document.getElementById('btn-open-file'),
             btnSettings: document.getElementById('btn-settings-toggle'),
             btnHome: document.getElementById('btn-home'),
             btnSave: document.getElementById('btn-save-project'),
             
-            // Library Components
+            // Library UI
             libNav: document.querySelector('.top-left-nav'),
             btnLibToggle: document.getElementById('btn-library-toggle'),
             libPopup: document.getElementById('library-popup'),
             libBoardList: document.getElementById('library-board-list'),
             btnLibNewBoard: document.getElementById('btn-lib-new-board'),
             
-            // Library Views & Toggle
+            // Library Mode Switching
             btnLibModeToggle: document.getElementById('btn-lib-mode-toggle'),
             libViewBoards: document.getElementById('lib-view-boards'),
             libViewPdfs: document.getElementById('lib-view-pdfs'),
@@ -35,6 +43,7 @@ class FluxApp {
             libFooterBoards: document.getElementById('lib-footer-boards'),
             libTitle: document.getElementById('library-title'),
 
+            // Modals & Tools
             btnCloseSettings: document.getElementById('btn-close-settings'),
             btnHardReset: document.getElementById('btn-hard-reset'),
             toolBtns: document.querySelectorAll('.bottom-toolbar .tool-btn'),
@@ -56,6 +65,7 @@ class FluxApp {
             btnCloseFormula: document.getElementById('btn-close-formula'),
             latexBtns: document.querySelectorAll('.latex-btn'),
 
+            // Property Controls
             btnCloseColor: document.getElementById('btn-close-color'),
             btnCloseStroke: document.getElementById('btn-close-stroke'),
             btnCloseShapes: document.getElementById('btn-close-shapes'),
@@ -78,6 +88,7 @@ class FluxApp {
             btnStrokeMinus: document.getElementById('btn-stroke-minus'),
             btnStrokePlus: document.getElementById('btn-stroke-plus'),
 
+            // Contextual Buttons
             groupTextActions: document.getElementById('group-text-actions'),
             dividerTextActions: document.getElementById('divider-text-actions'),
             btnEditText: document.getElementById('btn-edit-text'),
@@ -92,17 +103,19 @@ class FluxApp {
             btnRedo: document.getElementById('btn-redo')
         };
         
+        // App Internal State
         this.state = { 
             isReady: false, 
             boardActive: false, 
             activeTool: 'select', 
-            pickingMode: 'stroke',
+            pickingMode: 'stroke', // 'stroke' or 'fill'
             activeBoardId: null,
             editingElementId: null,
             libraryMode: 'boards',
-            dragSrcId: null 
+            dragSrcId: null // For Drag & Drop reordering
         };
 
+        // Project Data Model
         this.project = {
             name: "Untitled Project",
             boards: []
@@ -117,14 +130,25 @@ class FluxApp {
         this.init();
     }
 
+    /**
+     * @method init
+     * @description Entry point. Loads resources, inits sub-modules, and binds events.
+     */
     async init() {
         this.loadExternalStyles();
+        
         if(typeof FluxWhiteboard !== 'undefined') this.whiteboard = new FluxWhiteboard('flux-canvas');
         if(typeof FluxPdfViewer !== 'undefined') this.pdfViewer = new FluxPdfViewer();
         
-        this.loadSettings(); this.revealApplication(); this.bindEvents();
+        this.loadSettings(); 
+        this.revealApplication(); 
+        this.bindEvents();
     }
 
+    /**
+     * @method loadExternalStyles
+     * @description Fetches CSS content (like KaTeX) to inject into SVG rendering later.
+     */
     async loadExternalStyles() {
         try {
             const response = await fetch('lib/katex/katex.min.css');
@@ -136,15 +160,29 @@ class FluxApp {
         }
     }
 
+    /**
+     * @method revealApplication
+     * @description Orchestrates the startup animation sequence.
+     */
     async revealApplication() {
-        this.dom.app.classList.remove('hidden'); this.dom.app.classList.add('visible');
-        await new Promise(r => setTimeout(r, 500)); this.dom.mainTitle.classList.add('fade-in');
-        await new Promise(r => setTimeout(r, 800)); this.dom.splash.classList.add('fade-out');
-        await new Promise(r => setTimeout(r, 600)); this.dom.mainTitle.classList.remove('initial-center');
-        await new Promise(r => setTimeout(r, 400)); this.dom.menuContent.classList.remove('invisible');
-        this.dom.menuContent.classList.add('fade-in'); this.state.isReady = true;
+        this.dom.app.classList.remove('hidden'); 
+        this.dom.app.classList.add('visible');
+        await new Promise(r => setTimeout(r, 500)); 
+        this.dom.mainTitle.classList.add('fade-in');
+        await new Promise(r => setTimeout(r, 800)); 
+        this.dom.splash.classList.add('fade-out');
+        await new Promise(r => setTimeout(r, 600)); 
+        this.dom.mainTitle.classList.remove('initial-center');
+        await new Promise(r => setTimeout(r, 400)); 
+        this.dom.menuContent.classList.remove('invisible');
+        this.dom.menuContent.classList.add('fade-in'); 
+        this.state.isReady = true;
     }
 
+    /**
+     * @method saveCurrentBoardState
+     * @description Sycnhronizes the Whiteboard canvas state into the Project Data Model.
+     */
     saveCurrentBoardState() {
         if (this.state.activeBoardId && this.whiteboard) {
             const board = this.project.boards.find(b => b.id === this.state.activeBoardId);
@@ -157,8 +195,11 @@ class FluxApp {
     }
 
     loadSettings() {
-        const t = localStorage.getItem('flux-theme'); if(t==='light'){ document.body.classList.add('light-mode'); this.dom.themeToggle.checked=true; }
-        const g = localStorage.getItem('flux-grid'); if(g==='false'){ this.dom.gridToggle.checked=false; if(this.whiteboard) this.whiteboard.setGridEnabled(false); }
+        const t = localStorage.getItem('flux-theme'); 
+        if(t==='light'){ document.body.classList.add('light-mode'); this.dom.themeToggle.checked=true; }
+        
+        const g = localStorage.getItem('flux-grid'); 
+        if(g==='false'){ this.dom.gridToggle.checked=false; if(this.whiteboard) this.whiteboard.setGridEnabled(false); }
     }
 
     syncHistoryUI() {
@@ -167,7 +208,12 @@ class FluxApp {
         this.dom.btnRedo.disabled = this.whiteboard.history.redoStack.length === 0;
     }
 
+    /**
+     * @method bindEvents
+     * @description Attaches all DOM event listeners.
+     */
     bindEvents() {
+        // --- NAVIGATION ---
         this.dom.btnNew.addEventListener('click', () => this.startNewBoard());
         
         this.dom.btnHome.addEventListener('click', () => {
@@ -177,10 +223,10 @@ class FluxApp {
         });
 
         this.dom.btnSave.addEventListener('click', () => this.downloadProjectZip());
-
         this.dom.btnOpen.addEventListener('click', () => this.dom.fileInput.click());
         this.dom.fileInput.addEventListener('change', (e) => this.handleFileUpload(e));
 
+        // --- LIBRARY UI ---
         this.dom.btnLibToggle.addEventListener('click', (e) => { 
             e.stopPropagation(); 
             this.dom.libPopup.classList.toggle('hidden');
@@ -202,9 +248,11 @@ class FluxApp {
             this.addNewBoardToProject();
         });
 
+        // --- HISTORY ---
         this.dom.btnUndo.addEventListener('click', () => this.whiteboard.undo());
         this.dom.btnRedo.addEventListener('click', () => this.whiteboard.redo());
 
+        // --- TOOLBAR BUTTONS ---
         this.dom.toolBtns.forEach(btn => btn.addEventListener('click', () => {
             const t = btn.getAttribute('data-tool');
             if(t === 'line') this.createLineAction();
@@ -216,16 +264,27 @@ class FluxApp {
             else this.selectTool(t);
         }));
 
+        // --- FILE INPUTS ---
         this.dom.imageInput.addEventListener('change', (e) => this.handleImageUpload(e));
         this.dom.pdfInput.addEventListener('change', (e) => this.handlePdfUpload(e));
 
+        // --- SETTINGS & MODALS ---
         this.dom.btnSettings.addEventListener('click', () => this.dom.settingsModal.classList.remove('hidden'));
-        this.dom.btnColorPicker.addEventListener('click', () => { this.state.pickingMode = 'stroke'; document.getElementById('color-modal-title').textContent = 'Color'; this.dom.colorModal.classList.remove('hidden'); });
-        this.dom.btnFillPicker.addEventListener('click', () => { this.state.pickingMode = 'fill'; document.getElementById('color-modal-title').textContent = 'Fill Color'; this.dom.colorModal.classList.remove('hidden'); });
+        this.dom.btnColorPicker.addEventListener('click', () => { 
+            this.state.pickingMode = 'stroke'; 
+            document.getElementById('color-modal-title').textContent = 'Color'; 
+            this.dom.colorModal.classList.remove('hidden'); 
+        });
+        this.dom.btnFillPicker.addEventListener('click', () => { 
+            this.state.pickingMode = 'fill'; 
+            document.getElementById('color-modal-title').textContent = 'Fill Color'; 
+            this.dom.colorModal.classList.remove('hidden'); 
+        });
         this.dom.btnStrokePicker.addEventListener('click', () => this.dom.strokeModal.classList.remove('hidden'));
         
         [this.dom.btnCloseSettings, this.dom.btnCloseColor, this.dom.btnCloseStroke, this.dom.btnCloseShapes].forEach(b => b.addEventListener('click', () => b.closest('.modal-overlay').classList.add('hidden')));
 
+        // --- TEXT EDITING ---
         this.dom.btnEditText.addEventListener('click', () => {
             const sel = this.whiteboard.interaction.selectedElements[0];
             if (sel) this.routeToEditor(sel);
@@ -237,6 +296,7 @@ class FluxApp {
         this.dom.btnCloseFormula.addEventListener('click', () => this.saveAndCloseFormulaEditor());
         this.dom.latexBtns.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); this.handleLatexButton(btn.getAttribute('data-latex')); }));
         
+        // --- CUSTOM EVENTS ---
         this.dom.canvas.addEventListener('flux-doubleclick', (e) => {
              const el = e.detail.element;
              if (el && el.type === 'text') {
@@ -246,10 +306,7 @@ class FluxApp {
              }
         });
 
-        /**
-         * LISTENER: flux-pdf-preview
-         * Description: Passes the full element reference to the viewer to enable read/write of annotations.
-         */
+        // Trigger PDF Viewer
         this.dom.canvas.addEventListener('flux-pdf-preview', (e) => {
             const el = e.detail.element;
             
@@ -268,11 +325,13 @@ class FluxApp {
             }
         });
 
+        // --- PREFERENCES ---
         this.dom.themeToggle.addEventListener('change', e => {
             const isL = e.target.checked; document.body.classList.toggle('light-mode', isL);
             localStorage.setItem('flux-theme', isL ? 'light' : 'dark'); 
             if(this.whiteboard) {
                 this.whiteboard.updateThemeColors(isL);
+                // Clear render caches
                 this.whiteboard.elements.forEach(el => { 
                     if(el.type === 'text' || el.type === 'pdf') el.renderedImage = null; 
                 });
@@ -280,9 +339,14 @@ class FluxApp {
             }
         });
 
-        this.dom.gridToggle.addEventListener('change', e => { localStorage.setItem('flux-grid', e.target.checked); if(this.whiteboard) this.whiteboard.setGridEnabled(e.target.checked); });
+        this.dom.gridToggle.addEventListener('change', e => { 
+            localStorage.setItem('flux-grid', e.target.checked); 
+            if(this.whiteboard) this.whiteboard.setGridEnabled(e.target.checked); 
+        });
+        
         this.dom.btnHardReset.addEventListener('click', () => this.hardResetApp());
 
+        // --- ATTRIBUTE HANDLERS ---
         this.dom.colorDots.forEach(dot => dot.addEventListener('click', () => {
             const color = dot.getAttribute('data-color');
             this.updateSelectedProperty(el => {
@@ -298,7 +362,11 @@ class FluxApp {
             this.dom.colorModal.classList.add('hidden');
         }));
 
-        const handleWidth = v => { const n = Math.min(Math.max(parseInt(v)||1, 1), 50); this.updateSelectedProperty(el => { if(el.type==='shape') el.strokeWidth=n; else el.width=n; }); this.syncStrokeUI(n); };
+        const handleWidth = v => { 
+            const n = Math.min(Math.max(parseInt(v)||1, 1), 50); 
+            this.updateSelectedProperty(el => { if(el.type==='shape') el.strokeWidth=n; else el.width=n; }); 
+            this.syncStrokeUI(n); 
+        };
         this.dom.strokeSlider.addEventListener('input', e => handleWidth(e.target.value));
         this.dom.strokeNumber.addEventListener('change', e => handleWidth(e.target.value));
         this.dom.btnStrokeMinus.addEventListener('click', () => handleWidth(parseInt(this.dom.strokeNumber.value)-1));
@@ -319,12 +387,16 @@ class FluxApp {
         }));
 
         this.dom.arrowBtns.forEach(btn => btn.addEventListener('click', () => {
-            const t = btn.getAttribute('data-arrow'); this.updateSelectedProperty(el => { if(t==='start') el.arrowStart=!el.arrowStart; if(t==='end') el.arrowEnd=!el.arrowEnd; }); btn.classList.toggle('active');
+            const t = btn.getAttribute('data-arrow'); 
+            this.updateSelectedProperty(el => { if(t==='start') el.arrowStart=!el.arrowStart; if(t==='end') el.arrowEnd=!el.arrowEnd; }); 
+            btn.classList.toggle('active');
         }));
 
         this.dom.btnDuplicate.addEventListener('click', () => this.whiteboard.duplicateSelected());
         this.dom.btnDelete.addEventListener('click', () => this.whiteboard.deleteSelected());
     }
+
+    // --- FILE I/O ---
 
     handleFileUpload(e) {
         const file = e.target.files[0];
@@ -350,6 +422,7 @@ class FluxApp {
                  alert("JSZip library not loaded.");
              }
         } else {
+            // Legacy support for single JSON files
             const reader = new FileReader();
             reader.onload = (event) => this.loadProjectFromJSON(event.target.result);
             reader.readAsText(file);
@@ -422,13 +495,8 @@ class FluxApp {
         }
     }
 
-    createImageAction() {
-        this.dom.imageInput.click();
-    }
-
-    createAttachmentAction() {
-        this.dom.pdfInput.click();
-    }
+    createImageAction() { this.dom.imageInput.click(); }
+    createAttachmentAction() { this.dom.pdfInput.click(); }
 
     handleImageUpload(e) {
         const file = e.target.files[0];
@@ -445,7 +513,6 @@ class FluxApp {
     handlePdfUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
-        
         const reader = new FileReader();
         reader.onload = (event) => {
             this.whiteboard.addPDF(file.name, event.target.result);
@@ -454,6 +521,8 @@ class FluxApp {
         reader.readAsDataURL(file);
         e.target.value = "";
     }
+
+    // --- EDITORS ROUTING ---
 
     routeToEditor(el) {
         if (!el || el.type !== 'text') return;
@@ -561,12 +630,23 @@ class FluxApp {
         input.setSelectionRange(start + cursorOffset, start + cursorOffset);
     }
 
+    // --- UI HELPERS ---
+
     syncStrokeUI(v) { this.dom.btnStrokePicker.textContent = `${v}px`; this.dom.strokeSlider.value = v; this.dom.strokeNumber.value = v; }
     syncPickerButtonAppearance(btn, c, isA) { if(isA){ btn.className='color-dot auto'; btn.style.background=''; } else if(c==='transparent'){ btn.className='color-dot transparent'; btn.style.background=''; } else { btn.className='color-dot'; btn.style.background=c; } }
-    updateSelectedProperty(cb) { if(this.whiteboard) { this.whiteboard.saveHistory(); this.whiteboard.interaction.selectedElements.forEach(cb); this.whiteboard.render(); this.updateEditBar(); this.syncHistoryUI(); } }
+    
+    updateSelectedProperty(cb) { 
+        if(this.whiteboard) { 
+            this.whiteboard.saveHistory(); 
+            this.whiteboard.interaction.selectedElements.forEach(cb); 
+            this.whiteboard.render(); 
+            this.updateEditBar(); 
+            this.syncHistoryUI(); 
+        } 
+    }
 
     updateEditBar() {
-        // Safety check: if an element is being edited OR if the PDF viewer is open, the bar must stay hidden
+        // If an editor is open or PDF is open, hide the bar
         const isPdfOpen = this.pdfViewer && !this.pdfViewer.dom.overlay.classList.contains('hidden');
         if (this.state.editingElementId || isPdfOpen) { 
             this.dom.editBar.classList.add('hidden'); 
@@ -580,6 +660,8 @@ class FluxApp {
             if(sel.length === 1) {
                 const el = sel[0];
                 const isL = el.type === 'line', isS = el.type === 'shape', isT = el.type === 'text', isI = el.type === 'image', isP = el.type === 'pdf';
+                
+                // Show/Hide groups based on element type
                 this.dom.dividerTextActions.style.display = isT ? 'block' : 'none';
                 this.dom.groupTextActions.style.display = isT ? 'flex' : 'none';
                 document.getElementById('divider-stroke').style.display = (isT || isI || isP) ? 'none' : 'block';
@@ -590,6 +672,7 @@ class FluxApp {
                 document.getElementById('group-arrows').style.display = isL ? 'flex' : 'none';
                 this.dom.btnFillPicker.style.display = isS ? 'flex' : 'none';
                 this.dom.colorOptEmpty.style.display = isS ? 'flex' : 'none';
+                
                 if(!isT && !isI && !isP) this.syncStrokeUI(el.strokeWidth || el.width || 3);
                 if(isS) this.syncPickerButtonAppearance(this.dom.btnFillPicker, el.fillColor, el.isAutoFill);
                 if (!isI && !isP) {
@@ -602,7 +685,8 @@ class FluxApp {
         } else this.dom.editBar.classList.add('hidden');
     }
 
-    // Methods for tools
+    // --- TOOL ACTIONS ---
+
     createLineAction() { if(this.whiteboard){ const isL = document.body.classList.contains('light-mode'); this.whiteboard.addLine(isL ? '#1a1a1d' : '#ffffff'); this.selectTool('select'); } }
     
     createTextAction() { 
@@ -613,18 +697,16 @@ class FluxApp {
         } 
     }
 
+    // --- LIBRARY RENDERER ---
+
     renderLibrary() {
         this.dom.libBoardList.innerHTML = '';
-        
-        // Controllo di sicurezza: se project.boards non esiste, fermati
         if (!this.project || !this.project.boards) return;
 
         this.project.boards.forEach((board) => {
             const item = document.createElement('div');
-            // Usa l'ID per gestire la classe attiva
             const isActive = this.state.activeBoardId === board.id;
             item.className = `library-item ${isActive ? 'active' : ''}`;
-            
             item.draggable = true;
             
             item.innerHTML = `
@@ -648,27 +730,21 @@ class FluxApp {
                 item.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
             });
-
             item.addEventListener('dragend', () => {
                 item.classList.remove('dragging');
                 this.state.dragSrcId = null;
             });
-
             item.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 e.dataTransfer.dropEffect = 'move';
             });
-
             item.addEventListener('drop', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
+                e.stopPropagation(); e.preventDefault();
                 const srcId = this.state.dragSrcId;
                 const targetId = board.id;
-
                 if (srcId && srcId !== targetId) {
                     const srcIndex = this.project.boards.findIndex(b => b.id == srcId);
                     const targetIndex = this.project.boards.findIndex(b => b.id == targetId);
-
                     if (srcIndex > -1 && targetIndex > -1) {
                         const [movedBoard] = this.project.boards.splice(srcIndex, 1);
                         this.project.boards.splice(targetIndex, 0, movedBoard);
@@ -677,7 +753,7 @@ class FluxApp {
                 }
             });
 
-            // STANDARD EVENTS
+            // EVENTS
             item.querySelector('.lib-item-info').addEventListener('click', () => { 
                 this.switchToBoard(board.id); 
                 this.dom.libPopup.classList.add('hidden'); 
@@ -711,7 +787,6 @@ class FluxApp {
             this.dom.libFooterBoards.classList.remove('hidden');
             this.dom.libTitle.textContent = "Library";
             this.dom.btnLibModeToggle.classList.remove('active');
-            
             this.renderLibrary(); 
         } else {
             this.dom.libViewBoards.classList.add('hidden');
@@ -719,15 +794,12 @@ class FluxApp {
             this.dom.libFooterBoards.classList.add('hidden'); 
             this.dom.libTitle.textContent = "Documents";
             this.dom.btnLibModeToggle.classList.add('active');
-            
             this.renderPDFLibrary();
         }
     }
 
     renderPDFLibrary() {
         this.dom.libPdfList.innerHTML = '';
-        
-        // Controllo sicurezza: se whiteboard non esiste, esci
         if (!this.whiteboard) return;
 
         const pdfs = this.whiteboard.elements.filter(el => el.type === 'pdf');
@@ -741,7 +813,6 @@ class FluxApp {
             const item = document.createElement('div');
             item.className = 'library-item';
             item.draggable = true;
-
             item.innerHTML = `
                 <div class="lib-item-info">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-file-text-icon lucide-file-text"><path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg>
@@ -749,34 +820,27 @@ class FluxApp {
                 </div>
             `;
 
-            // DRAG & DROP PDF
+            // DRAG & DROP PDF Reordering
             item.addEventListener('dragstart', (e) => {
                 this.state.dragSrcId = pdf.id;
                 item.classList.add('dragging');
                 e.dataTransfer.effectAllowed = 'move';
             });
-
             item.addEventListener('dragend', () => {
                 item.classList.remove('dragging');
                 this.state.dragSrcId = null;
             });
-
             item.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
+                e.preventDefault(); e.dataTransfer.dropEffect = 'move';
             });
-
             item.addEventListener('drop', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
+                e.stopPropagation(); e.preventDefault();
                 const srcId = this.state.dragSrcId;
                 const targetId = pdf.id;
-
                 if (srcId && srcId !== targetId) {
                     const allElements = this.whiteboard.elements;
                     const srcIndex = allElements.findIndex(el => el.id == srcId);
                     const targetIndex = allElements.findIndex(el => el.id == targetId);
-
                     if (srcIndex > -1 && targetIndex > -1) {
                         this.whiteboard.saveHistory();
                         const [movedPDF] = allElements.splice(srcIndex, 1);
@@ -787,6 +851,7 @@ class FluxApp {
                 }
             });
 
+            // Click: Center View on PDF
             item.addEventListener('click', () => {
                 if (this.whiteboard) {
                     this.whiteboard.view.offsetX = window.innerWidth / 2 - (pdf.x + pdf.width/2) * this.whiteboard.view.scale;
@@ -813,8 +878,12 @@ class FluxApp {
     }
 
     selectTool(t) {
-        this.state.activeTool = t; this.dom.toolBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tool') === t));
-        if(this.whiteboard){ this.whiteboard.render(); if(t !== 'select'){ this.dom.editBar.classList.add('hidden'); this.whiteboard.interaction.selectedElements = []; } }
+        this.state.activeTool = t; 
+        this.dom.toolBtns.forEach(btn => btn.classList.toggle('active', btn.getAttribute('data-tool') === t));
+        if(this.whiteboard){ 
+            this.whiteboard.render(); 
+            if(t !== 'select'){ this.dom.editBar.classList.add('hidden'); this.whiteboard.interaction.selectedElements = []; } 
+        }
     }
 
     startNewBoard() {
@@ -826,7 +895,8 @@ class FluxApp {
         this.dom.btnSave.classList.remove('hidden'); 
         this.dom.libNav.classList.remove('hidden');
         if(this.whiteboard) this.whiteboard.resize();
-        this.state.boardActive = true; this.renderLibrary();
+        this.state.boardActive = true; 
+        this.renderLibrary();
     }
 
     addNewBoardToProject(name) {
@@ -858,14 +928,32 @@ class FluxApp {
         }
     }
 
-    async hardResetApp() { if(!confirm("Reset app?")) return; try { if(navigator.serviceWorker){ const rs=await navigator.serviceWorker.getRegistrations(); for(let r of rs) await r.unregister(); } if(window.caches){ const ns=await caches.keys(); for(let n of names) await caches.delete(n); } localStorage.clear(); sessionStorage.clear(); location.reload(true); } catch(e){ location.reload(); } }
+    async hardResetApp() { 
+        if(!confirm("Reset app? This will clear all data.")) return; 
+        try { 
+            if(navigator.serviceWorker){ 
+                const rs = await navigator.serviceWorker.getRegistrations(); 
+                for(let r of rs) await r.unregister(); 
+            } 
+            if(window.caches){ 
+                const ns = await caches.keys(); 
+                for(let n of ns) await caches.delete(n); 
+            } 
+            localStorage.clear(); 
+            sessionStorage.clear(); 
+            location.reload(true); 
+        } catch(e){ 
+            location.reload(); 
+        } 
+    }
 }
 
-// REGISTER SERVICE WORKER
+// Register PWA Service Worker
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('./sw.js')
         .then(() => console.log('Flux Service Worker Registered'))
         .catch(err => console.error('Flux Service Worker Failed:', err));
 }
 
+// Initialize Application
 document.addEventListener('DOMContentLoaded', () => window.flux = new FluxApp());

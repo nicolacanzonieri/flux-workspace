@@ -1,10 +1,32 @@
 <!DOCTYPE html>
 <html lang="en">
+<!-- 
+    FLUX WORKSPACE - MAIN ENTRY POINT
+    =================================
+    Structure:
+    1. Head: Meta tags for PWA, CSS/JS imports.
+    2. Body:
+       - Splash Screen: Initial loading curtain.
+       - App Container:
+         - Navigation (Right & Left)
+         - Home Menu (Start screen)
+         - Modals (Settings, Colors, Shapes, Editors)
+         - Canvas: The main whiteboard area.
+         - PDF Viewer: Overlay for document reading/annotation.
+    
+    Dependencies:
+    - KaTeX: Math rendering.
+    - Marked: Markdown parsing.
+    - PDF.js: PDF rendering.
+    - JSZip: Project file compression.
+-->
 <head>
     <meta charset="UTF-8"/>
+    <!-- Viewport settings optimized for iOS/iPadOS touch interactions -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
     <meta name="theme-color" content="#0f0f11"/>
     
+    <!-- PWA Settings -->
     <meta name="apple-mobile-web-app-capable" content="yes"/>
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
     <meta name="apple-mobile-web-app-title" content="Flux"/>
@@ -14,28 +36,43 @@
     <link rel="manifest" href="manifest.json"/>
     <link rel="stylesheet" href="style.css"/>
 
-    <!-- LOCAL External Libraries -->
+    <!-- LOCAL EXTERNAL LIBRARIES -->
+    <!-- KaTeX for LaTeX rendering -->
     <link rel="stylesheet" href="lib/katex/katex.min.css">
     <script src="lib/katex/katex.min.js"></script>
+    
+    <!-- Marked for Markdown to HTML conversion -->
     <script src="lib/marked/marked.min.js"></script>
+    
+    <!-- PDF.js for document rendering -->
     <script src="lib/pdfjs/pdf.min.js"></script>
     <script>
+        // Configure the PDF worker source relative to index.html
         pdfjsLib.GlobalWorkerOptions.workerSrc = 'lib/pdfjs/pdf.worker.min.js';
     </script>
+    
+    <!-- JSZip for saving/loading projects -->
     <script src="lib/jszip/jszip.min.js"></script>
 
     <title>Flux</title>
 </head>
 <body>
 
-    <!-- BLACK CURTAIN -->
+    <!-- 
+        SPLASH SCREEN
+        Black curtain that fades out once the app is initialized (app.js).
+    -->
     <div id="splash-screen"></div>
 
-    <!-- APP CONTAINER -->
+    <!-- 
+        APP MAIN CONTAINER 
+        Houses all UI elements. Toggled via .hidden class.
+    -->
     <main id="app" class="hidden">
         
-        <!-- TOP NAVIGATION BAR (RIGHT) -->
+        <!-- === TOP NAVIGATION BAR (RIGHT) === -->
         <div class="top-nav">
+            <!-- Home Button: Returns to the main menu -->
             <button id="btn-home" class="icon-btn home-btn hidden" aria-label="Home">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -45,6 +82,7 @@
             </button>
             <div class="nav-separator"></div>
             
+            <!-- Save Project Button -->
             <button id="btn-save-project" class="icon-btn hidden" aria-label="Save Project">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -57,6 +95,7 @@
             
             <div class="nav-separator"></div>
 
+            <!-- Settings Toggle -->
             <button id="btn-settings-toggle" class="icon-btn settings-btn" aria-label="Settings">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg">
@@ -66,14 +105,16 @@
             </button>
         </div>
 
-        <!-- TOP LEFT NAVIGATION (LIBRARY) -->
+        <!-- === TOP LEFT NAVIGATION (LIBRARY) === -->
         <div class="top-left-nav hidden">
+            <!-- Library Toggle -->
             <button id="btn-library-toggle" class="icon-btn library-btn" aria-label="Library">
                 <div class="icon-wrapper">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><rect width="8" height="18" x="3" y="3" rx="1"/><path d="M7 3v18"/><path d="M20.4 18.9c.2.5-.1 1.1-.6 1.3l-1.9.7c-.5.2-1.1-.1-1.3-.6L11.1 5.1c-.2-.5.1-1.1.6-1.3l1.9-.7c.5-.2 1.1.1 1.3.6Z"/></svg>
                 </div>
             </button>
 
+            <!-- Undo/Redo Controls -->
             <div class="history-pill">
                 <button id="btn-undo" class="icon-btn history-btn" aria-label="Undo" disabled>
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-svg"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5a5.5 5.5 0 0 1-5.5 5.5H11"/></svg>
@@ -93,10 +134,12 @@
                     </button>
                 </div>
                 <div class="library-content">
+                    <!-- View: Boards -->
                     <div id="lib-view-boards" class="library-section">
                         <small class="section-label">Boards</small>
                         <div id="library-board-list" class="library-list"></div>
                     </div>
+                    <!-- View: PDFs (Documents inside the active board) -->
                     <div id="lib-view-pdfs" class="library-section hidden">
                         <small class="section-label">Documents</small>
                         <div id="library-pdf-list" class="library-list">
@@ -112,9 +155,8 @@
                 </div>
             </div>
         </div>
-        <!-- FINE TOP LEFT NAV -->
 
-        <!-- HOME MENU -->
+        <!-- === HOME MENU (Start Screen) === -->
         <div id="home-menu" class="menu-container">
             <h1 id="main-title" class="app-title initial-center">Flux</h1>
             <div id="menu-content" class="fade-content invisible">
@@ -134,10 +176,11 @@
                     </button>
                 </div>
             </div>
+            <!-- Hidden inputs for file loading -->
             <input type="file" id="file-input" accept=".json,.flux,.zip" style="display: none;" />
         </div>
 
-        <!-- MARKDOWN EDITOR OVERLAY -->
+        <!-- === MARKDOWN EDITOR OVERLAY === -->
         <div id="markdown-editor-overlay" class="editor-overlay hidden">
             <div class="editor-header">
                 <span class="editor-title">Markdown Editor</span>
@@ -158,7 +201,7 @@
             </div>
         </div>
 
-        <!-- FORMULA EDITOR OVERLAY -->
+        <!-- === FORMULA EDITOR OVERLAY (LaTeX) === -->
         <div id="formula-editor-overlay" class="editor-overlay hidden">
             <div class="editor-header">
                 <span class="editor-title">LaTeX Equation Editor</span>
@@ -189,13 +232,16 @@
             </div>
         </div>
 
-        <!-- EDITING TOOLBAR -->
+        <!-- === CONTEXTUAL EDIT BAR (Properties) === -->
         <div id="edit-bar" class="edit-toolbar hidden">
             <div class="toolbar-scroll-container">
+                <!-- Color Controls -->
                 <div class="edit-group">
                     <button id="btn-color-picker" class="color-dot auto" title="Color"></button>
                     <button id="btn-fill-picker" class="color-dot transparent" title="Fill color" style="display:none"></button>
                 </div>
+                
+                <!-- Text Controls (Contextual) -->
                 <div class="toolbar-divider" id="divider-text-actions" style="display:none"></div>
                 <div class="edit-group" id="group-text-actions" style="display:none">
                     <button id="btn-edit-text" class="tool-btn mini" title="Edit Text">
@@ -208,6 +254,8 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-aarrow-up-icon lucide-a-arrow-up"><path d="m14 11 4-4 4 4"/><path d="M18 16V7"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/></svg>
                     </button>
                 </div>
+
+                <!-- Stroke/Style Controls -->
                 <div class="toolbar-divider" id="divider-stroke"></div>
                 <div class="edit-group" id="group-stroke">
                     <button id="btn-stroke-picker" class="tool-btn text-btn" title="Change thickness">3px</button>
@@ -224,6 +272,8 @@
                         <svg viewBox="0 0 24 24"><circle cx="6" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/><circle cx="18" cy="12" r="2" fill="currentColor"/></svg>
                     </button>
                 </div>
+
+                <!-- Arrow Controls -->
                 <div class="toolbar-divider" id="divider-arrows"></div>
                 <div class="edit-group" id="group-arrows">
                     <button class="tool-btn mini" data-arrow="start" title="Arrow Start">
@@ -233,6 +283,8 @@
                         <svg viewBox="0 0 24 24"><path d="m15 7 5 5-5 5M4 12h16" stroke="currentColor" stroke-width="2" fill="none"/></svg>
                     </button>
                 </div>
+
+                <!-- Element Actions -->
                 <div class="toolbar-divider"></div>
                 <div class="edit-group">
                     <button id="btn-duplicate" class="tool-btn action" title="Duplicate">
@@ -245,7 +297,7 @@
             </div>
         </div>
 
-        <!-- BOTTOM TOOLBAR -->
+        <!-- === MAIN TOOLBAR (Bottom) === -->
         <div id="toolbar" class="bottom-toolbar hidden">
             <div class="toolbar-scroll-container">
                 <button class="tool-btn active" data-tool="select" title="Select">
@@ -280,7 +332,7 @@
             </div>
         </div>
 
-        <!-- SETTINGS MODAL -->
+        <!-- === SETTINGS MODAL === -->
         <div id="settings-modal" class="modal-overlay hidden">
             <div class="modal-content">
                 <div class="modal-header">
@@ -325,7 +377,7 @@
             </div>
         </div>
 
-        <!-- COLOR SELECTOR MODAL -->
+        <!-- === COLOR SELECTOR MODAL === -->
         <div id="color-modal" class="modal-overlay hidden">
             <div class="modal-content small-modal">
                 <div class="modal-header">
@@ -333,6 +385,7 @@
                     <button id="btn-close-color" class="close-btn">×</button>
                 </div>
                 <div class="color-grid">
+                    <!-- Standard options -->
                     <div class="color-option-wrapper">
                         <button class="color-dot auto big" data-color="auto"></button>
                         <span>Auto</span>
@@ -345,12 +398,14 @@
                         <button class="color-dot big" data-color="#1a1a1d" style="background:#1a1a1d"></button>
                         <span>Black</span>
                     </div>
+                    <!-- Empty option (only for fill) -->
                     <div id="color-opt-empty" class="color-option-wrapper" style="display:none">
                         <button class="color-dot transparent big" data-color="transparent"></button>
                         <span>Empty</span>
                     </div>
                 </div>
                 <div class="modal-divider"></div>
+                <!-- Palette -->
                 <div class="color-grid">
                     <button class="color-dot big" data-color="#ff4757" style="background:#ff4757"></button>
                     <button class="color-dot big" data-color="#2ed573" style="background:#2ed573"></button>
@@ -362,7 +417,7 @@
             </div>
         </div>
 
-        <!-- STROKE WIDTH MODAL -->
+        <!-- === STROKE WIDTH MODAL === -->
         <div id="stroke-modal" class="modal-overlay hidden">
             <div class="modal-content small-modal">
                 <div class="modal-header">
@@ -382,7 +437,7 @@
             </div>
         </div>
 
-        <!-- SHAPES MODAL -->
+        <!-- === SHAPES MODAL === -->
         <div id="shapes-modal" class="modal-overlay hidden">
             <div class="modal-content small-modal">
                 <div class="modal-header">
@@ -412,7 +467,7 @@
             </div>
         </div>
 
-        <!-- GO TO PAGE MODAL -->
+        <!-- === GOTO PAGE MODAL (PDF) === -->
         <div id="pdf-goto-modal" class="modal-overlay hidden">
             <div class="modal-content small-modal">
                 <div class="modal-header">
@@ -429,9 +484,10 @@
             </div>
         </div>
 
-        <!-- CANVAS -->
+        <!-- === CANVAS ELEMENT === -->
         <canvas id="flux-canvas" class="hidden"></canvas>
         
+        <!-- Hidden Inputs for Files -->
         <input type="file" id="file-input" accept=".json,.flux,.zip" style="display: none;" />
         <input type="file" id="image-input" accept="image/*" style="display: none;" />
         <input type="file" id="pdf-input" accept=".pdf" style="display: none;" />
@@ -447,7 +503,7 @@
         <span id="pdf-pill-title" class="pill-text">Document.pdf</span>
     </div>
 
-    <!-- PDF VIEWER OVERLAY -->
+    <!-- === PDF VIEWER OVERLAY === -->
     <div id="pdf-viewer-overlay" class="pdf-overlay hidden">
         <div class="pdf-header">
             <span id="pdf-viewer-title" class="pdf-title">Document.pdf</span>
@@ -465,7 +521,7 @@
         </div>
         
         <div class="pdf-container">
-            <!-- PDF TOOLBAR -->
+            <!-- PDF Floating Toolbar -->
             <div class="pdf-toolbar">
                 <button class="pdf-tool-btn active" data-pdf-tool="select" title="Select">
                     <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-mouse-pointer2-icon lucide-mouse-pointer-2"><path d="M4.037 4.688a.495.495 0 0 1 .651-.651l16 6.5a.5.5 0 0 1-.063.947l-6.124 1.58a2 2 0 0 0-1.438 1.435l-1.579 6.126a.5.5 0 0 1-.947.063z"/></svg>
@@ -479,11 +535,12 @@
                 </button>
             </div>
 
+            <!-- Page Navigation Buttons -->
             <button id="btn-pdf-prev" class="pdf-nav-btn left" aria-label="Previous Page">
                 <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-arrow-left-icon lucide-arrow-left"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></svg>
             </button>
             
-            <!-- CANVAS WRAPPER -->
+            <!-- Canvas Wrapper: Stacked Rendering and Annotation Layer -->
             <div class="pdf-canvas-wrapper">
                 <canvas id="pdf-render-canvas"></canvas>
                 <canvas id="pdf-annotation-canvas"></canvas>
@@ -495,6 +552,7 @@
         </div>
     </div>
 
+    <!-- Application Scripts -->
     <script src="app.js"></script>
     <script src="js/shortcuts.js"></script>
     <script src="js/whiteboard.js"></script>

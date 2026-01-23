@@ -1,10 +1,23 @@
 /* 
  * FLUX WORKSPACE - MASTER STYLESHEET
- * Optimized for iPadOS & iOS PWA Full Screen
+ * ==================================
+ * Table of Contents:
+ * 1. Root Variables & Theme Configuration
+ * 2. Global Reset & Base Styles
+ * 3. Splash Screen & Transitions
+ * 4. Navigation Bars (Top Right/Left)
+ * 5. Library Popup & List Items
+ * 6. Home Menu (Start Screen)
+ * 7. Toolbars (Bottom & Edit Context)
+ * 8. Modals & UI Controls (Sliders, Toggles)
+ * 9. Editors (Markdown & LaTeX Overlays)
+ * 10. PDF Viewer Overlay
+ * 11. Canvas & Utility Classes
  */
 
-/* === 1. ROOT & VARIABLES === */
+/* === 1. ROOT VARIABLES & THEME CONFIGURATION === */
 :root {
+    /* Dark Mode (Default) */
     --bg-color: #0f0f11;
     --surface-color: #1a1a1d;
     --modal-bg: rgba(30, 30, 35, 0.95);
@@ -22,6 +35,7 @@
 
     --grid-dot-color: rgba(255, 255, 255, 0.15);
     
+    /* Environment Safe Areas (Notch support) */
     --safe-top: env(safe-area-inset-top);
     --safe-bottom: env(safe-area-inset-bottom);
     --safe-left: env(safe-area-inset-left);
@@ -30,6 +44,7 @@
     --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
 }
 
+/* Light Mode Overrides */
 body.light-mode {
     --bg-color: #f0f2f5;
     --surface-color: #ffffff;
@@ -44,10 +59,12 @@ body.light-mode {
     --glass-bg: rgba(255, 255, 255, 0.5);
 }
 
-/* === 2. GLOBAL RESET & BASE === */
+/* === 2. GLOBAL RESET & BASE STYLES === */
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 html, body { margin: 0; padding: 0; width: 100vw; height: 100dvh; overflow: hidden; user-select: none; background-color: var(--bg-color); }
 body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; transition: background-color 0.5s ease, color 0.5s ease; }
+
+/* Generic Icon SVG Styles */
 .icon-svg { width: 22px; height: 22px; stroke-width: 2px; stroke: currentColor; fill: none; }
 .icon-svg, .icon-svg * { pointer-events: none !important; }
 
@@ -73,20 +90,18 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
     flex-shrink: 0; 
 }
 
-/* Collapsible Buttons (Home & Save) - Shared Logic for Animation */
+/* Collapsible Buttons Animation Logic */
 .home-btn, 
 #btn-save-project { 
     width: 44px; opacity: 1; overflow: hidden;
     transition: width 0.5s var(--ease-out), opacity 0.3s, margin 0.5s var(--ease-out); 
 }
 
-/* Hidden state for collapsible buttons */
 .home-btn.hidden,
 #btn-save-project.hidden { 
     width: 0 !important; opacity: 0 !important; margin: 0 !important; padding: 0 !important; pointer-events: none; border: none;
 }
 
-/* Hide the separator following a hidden button */
 .home-btn.hidden + .nav-separator,
 #btn-save-project.hidden + .nav-separator { 
     width: 0 !important; margin: 0 !important; opacity: 0 !important; 
@@ -106,11 +121,12 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 
 .top-left-nav .icon-btn { border: none; background: transparent; }
 
+/* Standard Circular Icon Button */
 .icon-btn { background: var(--glass-bg); border: 1px solid var(--border-color); cursor: pointer; width: 44px; height: 44px; display: flex; justify-content: center; align-items: center; border-radius: 50%; color: var(--text-secondary); transition: all 0.3s ease; flex-shrink: 0; }
 .icon-btn:hover { color: var(--text-primary); background: var(--btn-hover-bg); border-color: var(--accent-color); }
 .top-nav .icon-btn { border: none; background: transparent; }
 
-/* Library Popup Styling */
+/* === 5. LIBRARY POPUP & LIST ITEMS === */
 .library-popup {
     position: absolute; top: 65px; left: 0; width: 280px; max-height: 70vh;
     background: var(--modal-bg); backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
@@ -121,7 +137,6 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 }
 .library-popup.hidden { transform: scale(0.85) translateY(-10px); opacity: 0; pointer-events: none; }
 
-/* Modifica Library Header per pulsante toggle */
 .library-header { 
     padding: 15px 24px 10px 24px; 
     display: flex; 
@@ -140,19 +155,12 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
     cursor: pointer;
     transition: all 0.2s;
 }
-.lib-header-btn:hover {
-    background: var(--btn-hover-bg);
-    color: var(--text-primary);
-}
-.lib-header-btn.active {
-    background: var(--btn-hover-bg);
-    color: var(--accent-color);
-}
+.lib-header-btn:hover { background: var(--btn-hover-bg); color: var(--text-primary); }
+.lib-header-btn.active { background: var(--btn-hover-bg); color: var(--accent-color); }
 
 .library-content { flex: 1; overflow-y: auto; padding: 10px 10px; }
 .section-label { text-transform: uppercase; letter-spacing: 1px; color: var(--text-secondary); font-size: 0.65rem; padding: 0 14px 10px 14px; display: block; opacity: 0.6; }
 
-/* Gestione view hidden */
 .library-section.hidden { display: none; }
 
 .library-list { display: flex; flex-direction: column; gap: 4px; }
@@ -181,9 +189,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
     padding: 4px 0;
 }
 
-.lib-actions {
-    display: flex; gap: 2px;
-}
+.lib-actions { display: flex; gap: 2px; }
 
 .lib-mini-btn {
     background: transparent; border: none; color: var(--text-secondary);
@@ -234,12 +240,9 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
     filter: grayscale(1);
 }
 
-.history-pill .nav-separator {
-    height: 16px;
-    margin: 0;
-}
+.history-pill .nav-separator { height: 16px; margin: 0; }
 
-/* === 5. HOME MENU === */
+/* === 6. HOME MENU (Start Screen) === */
 #app { width: 100%; height: 100%; opacity: 0; transition: opacity 1s ease-in; position: relative; }
 #app.visible { opacity: 1; }
 .menu-container { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 90%; max-width: 480px; padding: 20px; display: flex; flex-direction: column; align-items: center; z-index: 10; transition: opacity 0.5s ease, transform 0.8s var(--ease-out); }
@@ -258,23 +261,24 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .flux-btn:active { transform: scale(0.97) translateY(0); }.flux-btn.danger-btn { border-color: rgba(255, 71, 87, 0.3); color: var(--danger-color); }
 .flux-btn.danger-btn:hover { background: rgba(255, 71, 87, 0.1); border-color: var(--danger-color); box-shadow: 0 0 30px var(--danger-glow); transform: translateY(-3px); }
 
-/* === 6. TOOLBARS === */
+/* === 7. TOOLBARS === */
+
+/* Main Bottom Toolbar */
 .bottom-toolbar {
     position: absolute; bottom: calc(var(--safe-bottom) + 10px); left: 50%; transform: translateX(-50%);
     z-index: 100; max-width: 90%; background: var(--modal-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border-color); border-radius: 24px; padding: 6px; box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
     transition: transform 0.6s var(--ease-out), opacity 0.4s;
 }
-/* Slide-down animation */
 .bottom-toolbar.hidden { transform: translate(-50%, 120px); opacity: 0; pointer-events: none; }
 
+/* Contextual Edit Bar (appears above tool) */
 .edit-toolbar {
     position: absolute; bottom: calc(var(--safe-bottom) + 100px); left: 50%; transform: translateX(-50%);
     z-index: 110; max-width: 95%; background: var(--modal-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
     border: 1px solid var(--border-color); border-radius: 20px; padding: 8px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
     transition: all 0.4s var(--ease-out); display: flex; align-items: center;
 }
-/* Scale-down and slide-down animation */
 .edit-toolbar.hidden { transform: translate(-50%, 40px) scale(0.9); opacity: 0; pointer-events: none; }
 
 .toolbar-scroll-container { display: flex; align-items: center; gap: 4px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 2px; }
@@ -291,7 +295,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .tool-btn.action svg { width: 22px; height: 22px; }
 .danger-text { color: var(--danger-color) !important; }
 
-/* Color & Stroke Dots */
+/* Color & Stroke Indicators */
 .color-dot { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--text-primary); cursor: pointer; transition: transform 0.2s, border-color 0.3s; flex-shrink: 0; position: relative; overflow: hidden; }
 .color-dot:hover { transform: scale(1.15); }
 .color-dot.active { border-width: 2px; border-color: var(--accent-color); transform: scale(1.1); }
@@ -300,7 +304,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .color-dot.transparent::after { content: ''; position: absolute; top: 50%; left: 50%; width: 140%; height: 2px; background: #ff4757; transform: translate(-50%, -50%) rotate(-45deg); }
 .color-dot.big { width: 44px; height: 44px; }
 
-/* Modals & Controls */
+/* === 8. MODALS & UI CONTROLS === */
 .stroke-controls { display: flex; flex-direction: column; gap: 25px; align-items: center; width: 100%; }
 .numeric-input-group { display: flex; align-items: center; gap: 15px; }
 .step-btn { width: 44px; height: 44px; border-radius: 12px; border: 1px solid var(--border-color); background: var(--glass-bg); color: var(--text-primary); font-size: 1.5rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.2s; }
@@ -321,7 +325,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 .shape-opt-btn:hover { background: var(--btn-hover-bg); border-color: var(--accent-color); transform: translateY(-3px); }
 .shape-opt-btn svg { width: 40px; height: 40px; }
 
-/* === 7. MODALS === */
+/* Generic Modal Overlay */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); z-index: 1500; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: all 0.3s; }
 .modal-overlay:not(.hidden) { opacity: 1; visibility: visible; }
 .modal-content { background: var(--modal-bg); width: 90%; max-width: 450px; border-radius: 28px; border: 1px solid var(--border-color); padding: 30px; box-shadow: 0 30px 60px rgba(0,0,0,0.6); transform: scale(0.9); transition: transform 0.3s var(--ease-out); display: flex; flex-direction: column; max-height: 85vh; }
@@ -341,7 +345,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .description { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.4; }
 
-/* Toggles */
+/* Custom Toggle Switch (Sun/Moon) */
 .toggle-wrapper { position: relative; width: 60px; height: 32px; }
 .toggle-wrapper input { display: none; }
 .eclipse-toggle, .grid-toggle-label { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #2a2a2e; border-radius: 30px; cursor: pointer; overflow: hidden; transition: background 0.5s ease; }
@@ -356,7 +360,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 #grid-toggle:checked + .grid-toggle-label .grid-pattern { opacity: 0.4; }
 #grid-toggle:checked + .grid-toggle-label .grid-knob { transform: translateX(28px); }
 
-/* === 8. MARKDOWN EDITOR OVERLAY === */
+/* === 9. EDITORS (MARKDOWN & LATEX) === */
 .editor-overlay {
     position: fixed; 
     top: 0; 
@@ -385,7 +389,7 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
     padding: 10px; background: var(--modal-bg);
     border-top: 1px solid var(--border-color);
     overflow-x: auto; -webkit-overflow-scrolling: touch;
-    flex-shrink: 0; /* Prevents it from shrinking when keyboard opens */
+    flex-shrink: 0; 
     padding-bottom: max(10px, env(safe-area-inset-bottom));
 }
 
@@ -405,11 +409,11 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
     border: none; padding: 20px;
     font-family: 'Fira Code', 'Courier New', Courier, monospace;
     font-size: 16px; line-height: 1.6; resize: none;
-    padding-bottom: 20px; /* Space for scrolling */
+    padding-bottom: 20px;
 }
 .markdown-textarea:focus { outline: none; }
 
-/* === 9. PDF VIEWER OVERLAY & ANNOTATIONS === */
+/* === 10. PDF VIEWER OVERLAY === */
 .pdf-overlay {
     position: fixed; 
     top: calc(var(--safe-top) + 80px); 
@@ -459,250 +463,106 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
     letter-spacing: 1px;
 }
 
-.pdf-window-controls {
-    display: flex;
-    gap: 12px;
-    justify-self: end;
-}
+.pdf-window-controls { display: flex; gap: 12px; justify-self: end; }
 
 .pdf-control-btn {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    background: var(--glass-bg);
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s ease;
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--glass-bg); border: 1px solid var(--border-color);
+    color: var(--text-secondary); display: flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: all 0.2s ease;
 }
 
-.pdf-control-btn:hover {
-    background: var(--btn-hover-bg);
-    color: var(--text-primary);
-    border-color: var(--accent-color);
-}
-
-.pdf-control-btn.danger-hover:hover {
-    color: var(--danger-color);
-    border-color: var(--danger-color);
-    background: rgba(255, 71, 87, 0.1);
-}
+.pdf-control-btn:hover { background: var(--btn-hover-bg); color: var(--text-primary); border-color: var(--accent-color); }
+.pdf-control-btn.danger-hover:hover { color: var(--danger-color); border-color: var(--danger-color); background: rgba(255, 71, 87, 0.1); }
 
 .pdf-container {
-    flex: 1; 
-    position: relative; 
-    overflow: hidden;
-    display: flex; 
-    justify-content: center; 
-    align-items: center;
-    background: var(--bg-color);
-    padding-bottom: env(safe-area-inset-bottom);
+    flex: 1; position: relative; overflow: hidden;
+    display: flex; justify-content: center; align-items: center;
+    background: var(--bg-color); padding-bottom: env(safe-area-inset-bottom);
     touch-action: none;
 }
 
 #pdf-page-indicator {
-    background: var(--glass-bg);
-    padding: 6px 14px;
-    border-radius: 12px;
-    border: 1px solid var(--border-color);
-    cursor: pointer;
-    transition: all 0.2s ease;
-    display: inline-block;
+    background: var(--glass-bg); padding: 6px 14px; border-radius: 12px;
+    border: 1px solid var(--border-color); cursor: pointer;
+    transition: all 0.2s ease; display: inline-block;
 }
 
-#pdf-page-indicator:hover {
-    background: var(--btn-hover-bg);
-    border-color: var(--accent-color);
-    color: var(--text-primary);
-    transform: translateY(-1px);
-}
+#pdf-page-indicator:hover { background: var(--btn-hover-bg); border-color: var(--accent-color); color: var(--text-primary); transform: translateY(-1px); }
 
 #input-goto-page {
-    width: 100%;
-    background: var(--glass-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    color: var(--text-primary);
-    font-size: 1.5rem;
-    padding: 10px;
-    text-align: center;
-    font-family: monospace;
+    width: 100%; background: var(--glass-bg); border: 1px solid var(--border-color);
+    border-radius: 12px; color: var(--text-primary); font-size: 1.5rem;
+    padding: 10px; text-align: center; font-family: monospace;
 }
 
 .pdf-toolbar {
-    position: absolute;
-    bottom: 30px; 
-    left: 50%;
-    transform: translateX(-50%);
-    
-    display: flex;
-    flex-direction: row; 
-    align-items: center;
-    gap: 8px;
-    
-    background: var(--modal-bg);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    padding: 8px 12px;
-    border-radius: 20px;
-    border: 1px solid var(--border-color);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    z-index: 105;
-    transition: all 0.3s ease;
+    position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: row; align-items: center; gap: 8px;
+    background: var(--modal-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    padding: 8px 12px; border-radius: 20px; border: 1px solid var(--border-color);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5); z-index: 105; transition: all 0.3s ease;
 }
 
-.pdf-toolbar:hover {
-    bottom: 32px;
-    box-shadow: 0 15px 50px rgba(0,0,0,0.6);
-}
+.pdf-toolbar:hover { bottom: 32px; box-shadow: 0 15px 50px rgba(0,0,0,0.6); }
 
 .pdf-tool-btn {
-    width: 44px;
-    height: 44px;
-    border-radius: 12px;
-    background: transparent;
-    border: none;
-    color: var(--text-secondary);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.2s;
+    width: 44px; height: 44px; border-radius: 12px; background: transparent;
+    border: none; color: var(--text-secondary); display: flex;
+    align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s;
 }
 
-.pdf-tool-btn:hover { 
-    background: var(--btn-hover-bg); 
-    color: var(--text-primary); 
-}
+.pdf-tool-btn:hover { background: var(--btn-hover-bg); color: var(--text-primary); }
+.pdf-tool-btn.active { background: var(--btn-hover-bg); color: var(--accent-color); box-shadow: inset 0 0 10px var(--accent-glow); }
 
-.pdf-tool-btn.active {
-    background: var(--btn-hover-bg);
-    color: var(--accent-color);
-    box-shadow: inset 0 0 10px var(--accent-glow);
-}
-
-.pdf-tool-separator {
-    width: 1px;
-    height: 24px;
-    background: var(--border-color);
-    margin: 0 8px;
-    opacity: 0.5;
-}
+.pdf-tool-separator { width: 1px; height: 24px; background: var(--border-color); margin: 0 8px; opacity: 0.5; }
 
 .pdf-nav-btn {
-    position: absolute; 
-    top: 50%; 
-    transform: translateY(-50%);
-    background: var(--surface-color); 
-    border: 1px solid var(--border-color);
-    width: 48px; 
-    height: 48px; 
-    border-radius: 50%;
-    display: flex; 
-    justify-content: center; 
-    align-items: center;
-    color: var(--text-primary); 
-    cursor: pointer;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
-    transition: all 0.2s ease; 
-    z-index: 10;
+    position: absolute; top: 50%; transform: translateY(-50%);
+    background: var(--surface-color); border: 1px solid var(--border-color);
+    width: 48px; height: 48px; border-radius: 50%;
+    display: flex; justify-content: center; align-items: center;
+    color: var(--text-primary); cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2); transition: all 0.2s ease; z-index: 10;
 }
 
-.pdf-nav-btn:hover { 
-    background: var(--btn-hover-bg); 
-    transform: translateY(-50%) scale(1.1); 
-    border-color: var(--accent-color);
-}
-
-.pdf-nav-btn.left {  left: 20px; }
+.pdf-nav-btn:hover { background: var(--btn-hover-bg); transform: translateY(-50%) scale(1.1); border-color: var(--accent-color); }
+.pdf-nav-btn.left { left: 20px; }
 .pdf-nav-btn.right { right: 20px; }
 .pdf-nav-btn:disabled { opacity: 0.2; cursor: default; }
 
 .pdf-canvas-wrapper {
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-    border: none; 
-    display: grid; 
-    grid-template-columns: 1fr;
-    grid-template-rows: 1fr;
-    align-items: center;
-    justify-items: center;
-    
-    transform-origin: center center;
-    will-change: transform;
-    background-color: #ffffff;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5); border: none; 
+    display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr;
+    align-items: center; justify-items: center;
+    transform-origin: center center; will-change: transform; background-color: #ffffff;
 }
 
-.pdf-canvas-wrapper > canvas {
-    grid-area: 1 / 1;
-    width: auto; 
-    height: auto;
-    max-width: 100%; 
-    max-height: 100%;
-}
+.pdf-canvas-wrapper > canvas { grid-area: 1 / 1; width: auto; height: auto; max-width: 100%; max-height: 100%; }
 
-#pdf-render-canvas {
-    background-color: #ffffff;
-    z-index: 1;
-}
+#pdf-render-canvas { background-color: #ffffff; z-index: 1; }
+#pdf-annotation-canvas { background-color: transparent; pointer-events: none; z-index: 2; }
 
-#pdf-annotation-canvas {
-    background-color: transparent;
-    pointer-events: none;
-    z-index: 2;
-}
-
-/* === PDF Minimized Pill === */
+/* Minimized Pill State */
 .pdf-pill {
-    position: fixed;
-    top: calc(var(--safe-top) + 15px);
-    left: 50%;
-    transform: translateX(-50%);
-    z-index: 2001;
-    
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    
-    background: var(--glass-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid var(--border-color);
-    
-    height: 44px;
-    padding: 0 20px;
-    border-radius: 50px;
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
-    cursor: pointer;
-    transition: all 0.5s var(--ease-out);
-    color: var(--text-primary);
-    max-width: 300px;
+    position: fixed; top: calc(var(--safe-top) + 15px); left: 50%; transform: translateX(-50%); z-index: 2001;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--glass-bg); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--border-color); height: 44px; padding: 0 20px; border-radius: 50px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2); cursor: pointer; transition: all 0.5s var(--ease-out);
+    color: var(--text-primary); max-width: 300px;
 }
 
 .pdf-pill:hover {
-    background: var(--btn-hover-bg);
-    border-color: var(--accent-color);
-    transform: translateX(-50%) translateY(-2px);
-    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    background: var(--btn-hover-bg); border-color: var(--accent-color);
+    transform: translateX(-50%) translateY(-2px); box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
 }
 
-.pdf-pill.hidden {
-    opacity: 0;
-    pointer-events: none;
-    transform: translateX(-50%) translateY(-20px); 
-}
+.pdf-pill.hidden { opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(-20px); }
 
-.pill-text {
-    font-size: 0.9rem;
-    font-weight: 500;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
+.pill-text { font-size: 0.9rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* === 10. WHITEBOARD / CANVAS === */
+/* === 11. CANVAS & UTILITY CLASSES === */
 canvas { display: block; width: 100vw; height: 100vh; touch-action: none; background-color: var(--bg-color); }
 canvas.hidden { display: none; }
 canvas.panning { cursor: grabbing !important; }
