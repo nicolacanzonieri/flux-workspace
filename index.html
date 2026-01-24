@@ -552,6 +552,14 @@
         </div>
     </div>
 
+    <!-- Useful scripts -->
+    <script>
+        window.addEventListener('beforeunload', function (e) {
+            e.preventDefault();
+            e.returnValue = '';
+        });
+    </script>
+
     <!-- Application Scripts -->
     <script src="app.js"></script>
     <script src="js/shortcuts.js"></script>
