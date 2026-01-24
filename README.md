@@ -8,7 +8,7 @@ I created this application because I was tired of jumping between different apps
 Flux is my ideal digital workspace: it’s simple, fast, and designed to stay out of your way.
 
 ### How it was built ("Vibe Coding")
-This project is mainly **"vibe coded"** in order to deliver it quickly and not lose any time. I used AI to turn my ideas into code almost at the speed of thought, focusing on the experience and functionality rather than manually writing every single line from scratch.
+This project is mainly **"vibe coded"** in order to deliver it quickly and not lose any time. I used AI to turn my ideas into code focusing on the experience and functionality rather than manually writing every single line from scratch.
 
 However, **I personally stepped in (and I still do) to fix and refine several sections of the software** to ensure everything works exactly how I want it to.
 
