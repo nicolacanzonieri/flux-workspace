@@ -40,5 +40,8 @@ Flux is a **Progressive Web App (PWA)**. This means:
 *   **Canvas API:** To power the infinite whiteboard.
 *   **Key Libraries:** `pdf.js` for documents, `KaTeX` for math, and `marked.js` for Markdown.
 
+### If you want to contact me:
+Please use this email: `nicolacanzonieri2003@gmail.com`
+
 ---
 *Created with a mix of human vision and AI power.*
