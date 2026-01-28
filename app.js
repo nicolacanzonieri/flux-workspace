@@ -123,6 +123,9 @@ class FluxApp {
 
         this.dom.btnUndo = document.getElementById('btn-undo');
         this.dom.btnRedo = document.getElementById('btn-redo');
+
+        this.dom.lodSlider = document.getElementById('input-lod-threshold');
+        this.dom.lodValueDisplay = document.getElementById('lod-value');
         
         this.katexStyles = "";
         this.whiteboard = null;
@@ -200,6 +203,14 @@ class FluxApp {
         
         const g = localStorage.getItem('flux-grid'); 
         if(g==='false'){ this.dom.gridToggle.checked=false; if(this.whiteboard) this.whiteboard.setGridEnabled(false); }
+
+        const savedLod = localStorage.getItem('flux-lod-threshold');
+        if (savedLod && this.whiteboard) {
+            const val = parseFloat(savedLod);
+            this.whiteboard.config.lodThreshold = val;
+            this.dom.lodSlider.value = val;
+            this.dom.lodValueDisplay.textContent = val.toFixed(2);
+        }
     }
 
     syncHistoryUI() {
@@ -283,6 +294,16 @@ class FluxApp {
         this.dom.btnStrokePicker.addEventListener('click', () => this.dom.strokeModal.classList.remove('hidden'));
         
         [this.dom.btnCloseSettings, this.dom.btnCloseColor, this.dom.btnCloseStroke, this.dom.btnCloseShapes].forEach(b => b.addEventListener('click', () => b.closest('.modal-overlay').classList.add('hidden')));
+
+        this.dom.lodSlider.addEventListener('input', (e) => {
+            const val = parseFloat(e.target.value);
+            this.dom.lodValueDisplay.textContent = val.toFixed(2);
+            if (this.whiteboard) {
+                this.whiteboard.config.lodThreshold = val;
+                this.whiteboard.render(); // Aggiorna subito la vista
+            }
+            localStorage.setItem('flux-lod-threshold', val);
+        });
 
         // --- TEXT EDITING ---
         this.dom.btnEditText.addEventListener('click', () => {

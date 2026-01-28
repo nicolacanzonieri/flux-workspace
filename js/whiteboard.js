@@ -881,8 +881,7 @@ class FluxWhiteboard {
     }
 
     drawElements() {
-        const lodThreshold = 0.20; 
-        const isLowDetail = this.view.scale < lodThreshold;
+        const isLowDetail = this.view.scale < this.config.lodThreshold;
 
         this.elements.forEach(el => {
             // OPTIMIZATION 1: Frustum Culling
@@ -941,12 +940,12 @@ class FluxWhiteboard {
                 // OPTIMIZATION 3: LOD for text and PDFs
                 if (isLowDetail && (el.type === 'text' || el.type === 'pdf')) {
                     // Instead of drawing an entire SVG, draw a light rectangle
-                    this.ctx.fillStyle = el.color || (document.body.classList.contains('light-mode') ? '#ddd' : '#333');
-                    this.ctx.globalAlpha = 0.2;
+                    this.ctx.fillStyle = el.color || (document.body.classList.contains('light-mode') ? '#ccc' : '#333');
+                    this.ctx.globalAlpha = 0.15;
                     this.ctx.fillRect(sPos.x, sPos.y, sW, sH);
-                    this.ctx.globalAlpha = 1.0;
-                    this.ctx.strokeStyle = this.ctx.fillStyle;
+                    this.ctx.globalAlpha = 1;
                     this.ctx.lineWidth = 1;
+                    this.ctx.strokeStyle = this.ctx.fillStyle;
                     this.ctx.strokeRect(sPos.x, sPos.y, sW, sH);
                 } 
                 else if (el.type === 'shape') {
