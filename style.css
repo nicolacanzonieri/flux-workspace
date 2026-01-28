@@ -336,7 +336,20 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 /* Generic Modal Overlay */
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); z-index: 1500; display: flex; justify-content: center; align-items: center; opacity: 0; visibility: hidden; transition: all 0.3s; }
 .modal-overlay:not(.hidden) { opacity: 1; visibility: visible; }
-.modal-content { background: var(--modal-bg); width: 90%; max-width: 450px; border-radius: 28px; border: 1px solid var(--border-color); padding: 30px; box-shadow: 0 30px 60px rgba(0,0,0,0.6); transform: scale(0.9); transition: transform 0.3s var(--ease-out); display: flex; flex-direction: column; max-height: 85vh; }
+.modal-content { 
+    background: var(--modal-bg); 
+    width: 90%; 
+    max-width: 450px; 
+    border-radius: 28px; 
+    border: 1px solid var(--border-color); 
+    padding: 30px; 
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6); 
+    transform: scale(0.9); 
+    transition: transform 0.3s var(--ease-out); 
+    display: flex; 
+    flex-direction: column; 
+    max-height: 80vh; 
+}
 .modal-overlay:not(.hidden) .modal-content { transform: scale(1); }
 .small-modal { max-width: 320px; padding: 25px; }
 .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px; }
@@ -352,6 +365,9 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 .setting-section h3 { font-size: 0.8rem; text-transform: uppercase; color: var(--text-secondary); margin-bottom: 15px; letter-spacing: 1px; }
 .setting-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
 .description { font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px; line-height: 1.4; }
+.settings-scroll-area { overflow-y: auto; padding-right: 10px; flex: 1; }
+.settings-scroll-area::-webkit-scrollbar { width: 6px; }
+.settings-scroll-area::-webkit-scrollbar-thumb { background: var(--border-color); border-radius: 10px; }
 
 /* Custom Toggle Switch (Sun/Moon) */
 .toggle-wrapper { position: relative; width: 60px; height: 32px; }

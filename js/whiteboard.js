@@ -26,7 +26,8 @@ class FluxWhiteboard {
             zoomSensitivity: 0.005,
             handleRadius: 10,     // Size of resize handles
             handleHitThreshold: 35,
-            hitThreshold: 25      // Tolerance for clicking lines/objects
+            hitThreshold: 25,      // Tolerance for clicking lines/objects
+            lodThreshold: 0.20
         };
 
         // Viewport State (Camera)
@@ -860,79 +861,113 @@ class FluxWhiteboard {
         this.ctx.fill();
     }
 
+    isElementInView(el) {
+        const margin = 100; 
+        const scale = this.view.scale;
+        const topLeft = this.screenToWorld(-margin, -margin);
+        const bottomRight = this.screenToWorld(window.innerWidth + margin, window.innerHeight + margin);
+
+        if (el.type === 'line') {
+            const minX = Math.min(el.p1.x, el.p2.x);
+            const maxX = Math.max(el.p1.x, el.p2.x);
+            const minY = Math.min(el.p1.y, el.p2.y);
+            const maxY = Math.max(el.p1.y, el.p2.y);
+            return !(maxX < topLeft.x || minX > bottomRight.x || maxY < topLeft.y || minY > bottomRight.y);
+        }
+        if (el.type === 'pen') return true;
+
+        return !(el.x + el.width < topLeft.x || el.x > bottomRight.x || 
+                el.y + el.height < topLeft.y || el.y > bottomRight.y);
+    }
+
     drawElements() {
+        const lodThreshold = 0.20; 
+        const isLowDetail = this.view.scale < lodThreshold;
+
         this.elements.forEach(el => {
+            // OPTIMIZATION 1: Frustum Culling
+            if (!this.isElementInView(el)) return;
+
             this.ctx.save();
             const isSelected = this.interaction.selectedElements.includes(el);
             
+            // Lines and pen lines are always rendered
             if (el.type === 'line' || el.type === 'pen') {
                 this.ctx.strokeStyle = el.color;
                 this.ctx.lineWidth = (el.strokeWidth || el.width || 3) * this.view.scale;
                 this.ctx.lineCap = 'round'; 
                 this.ctx.lineJoin = 'round';
                 
-                if (el.dashStyle === 'dashed') this.ctx.setLineDash([15 * this.view.scale, 10 * this.view.scale]);
-                else if (el.dashStyle === 'dotted') this.ctx.setLineDash([2 * this.view.scale, 8 * this.view.scale]);
-                
+                // If we are "far" then disable dashed and dotted lines
+                if (!isLowDetail) {
+                    if (el.dashStyle === 'dashed') this.ctx.setLineDash([15 * this.view.scale, 10 * this.view.scale]);
+                    else if (el.dashStyle === 'dotted') this.ctx.setLineDash([2 * this.view.scale, 8 * this.view.scale]);
+                }
+
                 if (el.type === 'line') {
                     const sP1 = this.worldToScreen(el.p1.x, el.p1.y);
                     const sP2 = this.worldToScreen(el.p2.x, el.p2.y);
+                    this.ctx.beginPath(); 
+                    this.ctx.moveTo(sP1.x, sP1.y); 
+                    this.ctx.lineTo(sP2.x, sP2.y); 
+                    this.ctx.stroke();
                     
-                    // Arrowhead offset calculations
-                    const ang = Math.atan2(sP2.y-sP1.y, sP2.x-sP1.x);
-                    const hL = (el.width*4+6)*this.view.scale;
-                    let x1 = sP1.x, y1 = sP1.y, x2 = sP2.x, y2 = sP2.y;
-                    
-                    if (el.arrowStart) { x1 += hL*0.8*Math.cos(ang); y1 += hL*0.8*Math.sin(ang); }
-                    if (el.arrowEnd) { x2 -= hL*0.8*Math.cos(ang); y2 -= hL*0.8*Math.sin(ang); }
-                    
-                    this.ctx.beginPath(); this.ctx.moveTo(x1, y1); this.ctx.lineTo(x2, y2); this.ctx.stroke();
-                    
-                    if (el.arrowStart) this.drawArrowhead(el.p2, el.p1, el.color, el.width);
-                    if (el.arrowEnd) this.drawArrowhead(el.p1, el.p2, el.color, el.width);
-                    
+                    if (!isLowDetail) {
+                        if (el.arrowStart) this.drawArrowhead(el.p2, el.p1, el.color, el.width);
+                        if (el.arrowEnd) this.drawArrowhead(el.p1, el.p2, el.color, el.width);
+                    }
                     if (isSelected) { this.drawHandle(sP1.x, sP1.y, el.color); this.drawHandle(sP2.x, sP2.y, el.color); }
                 } else {
-                    // Pen Drawing
                     this.ctx.beginPath(); 
                     const st = this.worldToScreen(el.points[0].x, el.points[0].y); 
                     this.ctx.moveTo(st.x, st.y);
-                    el.points.forEach(p => { 
-                        const sp = this.worldToScreen(p.x, p.y); 
-                        this.ctx.lineTo(sp.x, sp.y); 
-                    }); 
-                    this.ctx.stroke();
                     
-                    if (isSelected) { 
-                        // Glow effect for selection
-                        this.ctx.globalAlpha = 0.3; 
-                        this.ctx.lineWidth += 10 * this.view.scale; 
-                        this.ctx.stroke(); 
+                    // OPTIMIZATION 2: Simplified pen lines 
+                    // If we are "far" then draw only one point every 3
+                    const step = isLowDetail ? 3 : 1;
+                    for(let i=1; i < el.points.length; i+=step) {
+                        const sp = this.worldToScreen(el.points[i].x, el.points[i].y);
+                        this.ctx.lineTo(sp.x, sp.y);
                     }
+                    this.ctx.stroke();
                 }
-            } else if (el.type === 'shape') {
-                this.ctx.strokeStyle = el.color;
-                this.ctx.lineWidth = (el.strokeWidth || 3) * this.view.scale;
-                const sP = this.worldToScreen(el.x, el.y);
+            } 
+            // Managing shapes, text and PDFs
+            else {
+                const sPos = this.worldToScreen(el.x, el.y);
                 const sW = el.width * this.view.scale;
                 const sH = el.height * this.view.scale;
+
+                // OPTIMIZATION 3: LOD for text and PDFs
+                if (isLowDetail && (el.type === 'text' || el.type === 'pdf')) {
+                    // Instead of drawing an entire SVG, draw a light rectangle
+                    this.ctx.fillStyle = el.color || (document.body.classList.contains('light-mode') ? '#ddd' : '#333');
+                    this.ctx.globalAlpha = 0.2;
+                    this.ctx.fillRect(sPos.x, sPos.y, sW, sH);
+                    this.ctx.globalAlpha = 1.0;
+                    this.ctx.strokeStyle = this.ctx.fillStyle;
+                    this.ctx.lineWidth = 1;
+                    this.ctx.strokeRect(sPos.x, sPos.y, sW, sH);
+                } 
+                else if (el.type === 'shape') {
+                    this.ctx.strokeStyle = el.color;
+                    this.ctx.lineWidth = (el.strokeWidth || 3) * this.view.scale;
+                    this.ctx.beginPath(); 
+                    this.drawShapePath(el.shapeType, sPos.x, sPos.y, sW, sH);
+                    if (el.fillColor !== 'transparent') { this.ctx.fillStyle = el.fillColor; this.ctx.fill(); }
+                    if (el.color !== 'transparent') this.ctx.stroke();
+                } 
+                else if (el.type === 'text') {
+                    this.drawTextElement(el, isSelected);
+                } 
+                else if (el.type === 'image') {
+                    this.drawImageElement(el, isSelected);
+                } 
+                else if (el.type === 'pdf') {
+                    this.drawPDFElement(el, isSelected);
+                }
                 
-                this.ctx.beginPath(); 
-                this.drawShapePath(el.shapeType, sP.x, sP.y, sW, sH);
-                
-                if (el.fillColor !== 'transparent') { this.ctx.fillStyle = el.fillColor; this.ctx.fill(); }
-                if (el.color !== 'transparent') this.ctx.stroke();
-                
-                if (isSelected) this.getElementHandles(el).forEach(h => { 
-                    const sh = this.worldToScreen(h.x, h.y); 
-                    this.drawHandle(sh.x, sh.y, el.color !== 'transparent' ? el.color : '#888'); 
-                });
-            } else if (el.type === 'text') {
-                this.drawTextElement(el, isSelected);
-            } else if (el.type === 'image') {
-                this.drawImageElement(el, isSelected);
-            } else if (el.type === 'pdf') {
-                this.drawPDFElement(el, isSelected);
+                if (isSelected) this.drawSelectionBox(sPos, sW, sH, el);
             }
             this.ctx.restore();
         });
