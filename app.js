@@ -736,42 +736,46 @@ class FluxApp {
                     <span>${board.name}</span>
                 </div>
                 <div class="lib-actions">
-                    <button class="lib-mini-btn rename" title="Rename">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-text-cursor-icon lucide-text-cursor"><path d="M17 22h-1a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h1"/><path d="M7 22h1a4 4 0 0 0 4-4v-1"/><path d="M7 2h1a4 4 0 0 1 4 4v1"/></svg>
-                    </button>
-                    <button class="lib-mini-btn delete danger" title="Delete">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-trash2-icon lucide-trash-2"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
-                    </button>
+                    <button class="lib-mini-btn rename" title="Rename"><svg ...></svg></button>
+                    <button class="lib-mini-btn delete danger" title="Delete"><svg ...></svg></button>
                 </div>
             `;
 
-            // DRAG & DROP LOGIC
+            // --- DRAG & DROP DESKTOP (HTML5) ---
             item.addEventListener('dragstart', (e) => {
                 this.state.dragSrcId = board.id;
                 item.classList.add('dragging');
-                e.dataTransfer.effectAllowed = 'move';
             });
-            item.addEventListener('dragend', () => {
-                item.classList.remove('dragging');
-                this.state.dragSrcId = null;
-            });
-            item.addEventListener('dragover', (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-            });
+            item.addEventListener('dragend', () => item.classList.remove('dragging'));
+            item.addEventListener('dragover', (e) => e.preventDefault());
             item.addEventListener('drop', (e) => {
-                e.stopPropagation(); e.preventDefault();
-                const srcId = this.state.dragSrcId;
-                const targetId = board.id;
-                if (srcId && srcId !== targetId) {
-                    const srcIndex = this.project.boards.findIndex(b => b.id == srcId);
-                    const targetIndex = this.project.boards.findIndex(b => b.id == targetId);
-                    if (srcIndex > -1 && targetIndex > -1) {
-                        const [movedBoard] = this.project.boards.splice(srcIndex, 1);
-                        this.project.boards.splice(targetIndex, 0, movedBoard);
-                        this.renderLibrary();
+                e.preventDefault();
+                this.reorderBoards(this.state.dragSrcId, board.id);
+            });
+
+            item.addEventListener('touchstart', (e) => {
+                this.state.dragSrcId = board.id;
+            }, { passive: true });
+
+            item.addEventListener('touchmove', (e) => {
+                if (!this.state.dragSrcId) return;
+                
+                const touch = e.touches[0];
+                const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
+                const targetItem = targetEl?.closest('.library-item');
+
+                if (targetItem) {
+                    const targetBoard = this.project.boards.find(b => targetItem.textContent.includes(b.name));
+                    
+                    if (targetBoard && targetBoard.id !== this.state.dragSrcId) {
+                        e.preventDefault();
+                        this.reorderBoards(this.state.dragSrcId, targetBoard.id);
                     }
                 }
+            }, { passive: false });
+
+            item.addEventListener('touchend', () => {
+                this.state.dragSrcId = null;
             });
 
             // EVENTS
@@ -798,6 +802,19 @@ class FluxApp {
 
             this.dom.libBoardList.appendChild(item);
         });
+    }
+
+    reorderBoards(srcId, targetId) {
+        if (!srcId || srcId === targetId) return;
+        
+        const srcIndex = this.project.boards.findIndex(b => b.id == srcId);
+        const targetIndex = this.project.boards.findIndex(b => b.id == targetId);
+        
+        if (srcIndex > -1 && targetIndex > -1) {
+            const [movedBoard] = this.project.boards.splice(srcIndex, 1);
+            this.project.boards.splice(targetIndex, 0, movedBoard);
+            this.renderLibrary();
+        }
     }
     
     switchLibraryView(mode) {
