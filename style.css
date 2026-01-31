@@ -169,7 +169,7 @@ body { color: var(--text-primary); font-family: -apple-system, BlinkMacSystemFon
 .library-item { 
     display: flex; align-items: center; justify-content: space-between;
     padding: 8px 10px; border-radius: 14px; color: var(--text-primary); 
-    cursor: grab;
+    cursor: default;
     touch-action: pagination;
     user-select: none;
     -webkit-user-drag: element;

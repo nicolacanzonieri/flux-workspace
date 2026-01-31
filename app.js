@@ -724,11 +724,12 @@ class FluxApp {
         this.dom.libBoardList.innerHTML = '';
         if (!this.project || !this.project.boards) return;
 
+        this.project.boards.sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }));
+
         this.project.boards.forEach((board) => {
             const item = document.createElement('div');
             const isActive = this.state.activeBoardId === board.id;
             item.className = `library-item ${isActive ? 'active' : ''}`;
-            item.draggable = true;
             
             item.innerHTML = `
                 <div class="lib-item-info">
@@ -736,49 +737,15 @@ class FluxApp {
                     <span>${board.name}</span>
                 </div>
                 <div class="lib-actions">
-                    <button class="lib-mini-btn rename" title="Rename"><svg ...></svg></button>
-                    <button class="lib-mini-btn delete danger" title="Delete"><svg ...></svg></button>
+                    <button class="lib-mini-btn rename" title="Rename">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg>
+                    </button>
+                    <button class="lib-mini-btn delete danger" title="Delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+                    </button>
                 </div>
             `;
 
-            // --- DRAG & DROP DESKTOP (HTML5) ---
-            item.addEventListener('dragstart', (e) => {
-                this.state.dragSrcId = board.id;
-                item.classList.add('dragging');
-            });
-            item.addEventListener('dragend', () => item.classList.remove('dragging'));
-            item.addEventListener('dragover', (e) => e.preventDefault());
-            item.addEventListener('drop', (e) => {
-                e.preventDefault();
-                this.reorderBoards(this.state.dragSrcId, board.id);
-            });
-
-            item.addEventListener('touchstart', (e) => {
-                this.state.dragSrcId = board.id;
-            }, { passive: true });
-
-            item.addEventListener('touchmove', (e) => {
-                if (!this.state.dragSrcId) return;
-                
-                const touch = e.touches[0];
-                const targetEl = document.elementFromPoint(touch.clientX, touch.clientY);
-                const targetItem = targetEl?.closest('.library-item');
-
-                if (targetItem) {
-                    const targetBoard = this.project.boards.find(b => targetItem.textContent.includes(b.name));
-                    
-                    if (targetBoard && targetBoard.id !== this.state.dragSrcId) {
-                        e.preventDefault();
-                        this.reorderBoards(this.state.dragSrcId, targetBoard.id);
-                    }
-                }
-            }, { passive: false });
-
-            item.addEventListener('touchend', () => {
-                this.state.dragSrcId = null;
-            });
-
-            // EVENTS
             item.querySelector('.lib-item-info').addEventListener('click', () => { 
                 this.switchToBoard(board.id); 
                 this.dom.libPopup.classList.add('hidden'); 
@@ -787,7 +754,10 @@ class FluxApp {
             item.querySelector('.rename').addEventListener('click', (e) => {
                 e.stopPropagation();
                 const newName = prompt("Rename Board", board.name);
-                if(newName && newName.trim() !== "") { board.name = newName.trim(); this.renderLibrary(); }
+                if(newName && newName.trim() !== "") { 
+                    board.name = newName.trim(); 
+                    this.renderLibrary();
+                }
             });
             
             item.querySelector('.delete').addEventListener('click', (e) => {
