@@ -83,7 +83,7 @@ document.addEventListener('keydown', (e) => {
         if (app.pdfViewer && app.pdfViewer.pdfDoc) {
             const isFullOpen = !app.pdfViewer.dom.overlay.classList.contains('hidden');
             const isMinimized = !app.pdfViewer.dom.pill.classList.contains('hidden');
-
+            
             if (isFullOpen) {
                 app.pdfViewer.minimize();
             } else if (isMinimized) {
@@ -92,11 +92,11 @@ document.addEventListener('keydown', (e) => {
         }
         return;
     }
+    
+    const isPdfOpen = app.pdfViewer && !app.pdfViewer.dom.overlay.classList.contains('hidden');
 
     // --- 3. PDF VIEWER CONTEXT SHORTCUTS ---
-    // These apply only when the PDF viewer overlay is visible.
-    const isPdfOpen = app.pdfViewer && !app.pdfViewer.dom.overlay.classList.contains('hidden');
-    if (isPdfOpen && !isTyping) {
+    if (isPdfOpen) {
         if (e.key === 'ArrowRight') {
             e.preventDefault();
             app.pdfViewer.onNextPage();
@@ -105,11 +105,6 @@ document.addEventListener('keydown', (e) => {
         if (e.key === 'ArrowLeft') {
             e.preventDefault();
             app.pdfViewer.onPrevPage();
-            return;
-        }
-        if (e.key === 'Escape') {
-            e.preventDefault();
-            app.pdfViewer.close();
             return;
         }
     }

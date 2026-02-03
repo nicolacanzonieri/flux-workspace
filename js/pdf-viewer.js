@@ -184,6 +184,9 @@ class FluxPdfViewer {
             return;
         }
 
+        // Remove focus from keyboard (markdown editor)
+        if (document.activeElement) document.activeElement.blur();
+
         // Ensure overlay is in the DOM
         if(this.dom.overlay.parentElement) {
             document.body.appendChild(this.dom.overlay);
@@ -204,6 +207,8 @@ class FluxPdfViewer {
         this.dom.overlay.classList.remove('hidden');
         this.dom.overlay.style.display = 'flex';
         this.dom.pill.classList.add('hidden');
+
+        this.dom.overlay.focus();
         
         // Reset View
         this.state.translateX = 0;
@@ -248,9 +253,15 @@ class FluxPdfViewer {
         if(this.dom.overlay.parentElement) {
             document.body.appendChild(this.dom.overlay);
         }
+
+        // Remove focus from keyboard (markdown editor)
+        if (document.activeElement) document.activeElement.blur();
+
         this.dom.pill.classList.add('hidden');
         this.dom.overlay.classList.remove('hidden');
         this.dom.overlay.style.display = 'flex';
+
+        this.dom.overlay.focus();
 
         if(this.pdfDoc) {
             this.recalculateBounds();
