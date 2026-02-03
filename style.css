@@ -559,13 +559,24 @@ input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 22p
 .pdf-nav-btn:disabled { opacity: 0.2; cursor: default; }
 
 .pdf-canvas-wrapper {
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5); border: none; 
-    display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr;
-    align-items: center; justify-items: center;
-    transform-origin: center center; will-change: transform; background-color: #ffffff;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    border: none; 
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 1fr;
+    align-items: center;
+    justify-items: center;
+    transform-origin: center center;
+    will-change: transform;
+    background-color: #ffffff;
 }
 
-.pdf-canvas-wrapper > canvas { grid-area: 1 / 1; width: auto; height: auto; max-width: 100%; max-height: 100%; }
+.pdf-canvas-wrapper > canvas {
+    grid-area: 1 / 1;
+    width: auto;
+    height: auto;
+    display: block;
+}
 
 #pdf-render-canvas { background-color: #ffffff; z-index: 1; }
 #pdf-annotation-canvas { background-color: transparent; pointer-events: none; z-index: 2; }

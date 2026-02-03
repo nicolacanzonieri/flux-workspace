@@ -337,7 +337,7 @@ class FluxPdfViewer {
     openGotoModal() {
         if (!this.pdfDoc) return;
         this.dom.gotoModal.style.zIndex = 7000;
-        this.dom.gotoRangeText.textContent = `Inserisci un numero tra 1 e ${this.pdfDoc.numPages}`;
+        this.dom.gotoRangeText.textContent = `Enter a number between 1 and ${this.pdfDoc.numPages}`;
         this.dom.gotoInput.value = this.pageNum;
         this.dom.gotoInput.max = this.pdfDoc.numPages;
         this.dom.gotoModal.classList.remove('hidden');
@@ -352,7 +352,7 @@ class FluxPdfViewer {
                 this.renderPage(targetPage);
             }
         } else {
-            alert(`Pagina non valida. Inserire un numero tra 1 e ${this.pdfDoc.numPages}`);
+            alert(`Invalid page. Please enter a number between 1 and ${this.pdfDoc.numPages}`);
         }
     }
 
@@ -519,6 +519,11 @@ class FluxPdfViewer {
         this.applyTransform();
     }
 
+    /**
+     * @method clampTranslation
+     * @description Handles movement limits. If the PDF is smaller than the container 
+     * (e.g. horizontally), it centers it automatically.
+     */
     clampTranslation() {
         const currentW = this.state.baseWidth * this.state.zoom;
         const currentH = this.state.baseHeight * this.state.zoom;
@@ -527,26 +532,46 @@ class FluxPdfViewer {
         
         const clamp = (val, min, max) => Math.min(Math.max(val, min), max);
         
-        // Center if smaller than viewport, else clamp edges
-        if (currentW <= containerW) this.state.translateX = 0;
-        else { const maxTx = (currentW - containerW) / 2; this.state.translateX = clamp(this.state.translateX, -maxTx, maxTx); }
+        if (currentW <= containerW) {
+            this.state.translateX = 0;
+        } else {
+            const maxTx = (currentW - containerW) / 2;
+            this.state.translateX = clamp(this.state.translateX, -maxTx, maxTx);
+        }
         
-        if (currentH <= containerH) this.state.translateY = 0;
-        else { const maxTy = (currentH - containerH) / 2; this.state.translateY = clamp(this.state.translateY, -maxTy, maxTy); }
+        if (currentH <= containerH) {
+            this.state.translateY = 0;
+        } else {
+            const maxTy = (currentH - containerH) / 2;
+            this.state.translateY = clamp(this.state.translateY, -maxTy, maxTy);
+        }
     }
 
     applyTransform() {
         this.dom.wrapper.style.transform = `translate3d(${this.state.translateX}px, ${this.state.translateY}px, 0) scale(${this.state.zoom})`;
     }
 
+    /**
+     * @method resetToFit
+     * @description Fits the page to the container, regardless of orientation.
+     */
     resetToFit() {
-        if (!this.state.baseWidth) return;
-        // Fit within container with margin
-        const scale = Math.min(this.dom.container.clientWidth / this.state.baseWidth, this.dom.container.clientHeight / this.state.baseHeight) * 0.95;
-        this.state.minZoom = scale;
-        this.state.zoom = scale;
+        if (!this.state.baseWidth || !this.state.baseHeight) return;
+
+        const containerW = this.dom.container.clientWidth;
+        const containerH = this.dom.container.clientHeight;
+        
+        const scaleW = (containerW * 0.90) / this.state.baseWidth;
+        const scaleH = (containerH * 0.90) / this.state.baseHeight;
+
+        const fitScale = Math.min(scaleW, scaleH);
+
+        this.state.minZoom = fitScale * 0.5;
+        this.state.zoom = fitScale;
+        
         this.state.translateX = 0;
         this.state.translateY = 0;
+        
         this.applyTransform();
     }
 
