@@ -49,6 +49,10 @@ class FluxPdfViewer {
         this.pageNumPending = null;
         this.fileName = "Document.pdf";
 
+        this.lastActiveEditor = null;
+        this.lastCaretStart = 0;
+        this.lastCaretEnd = 0;
+
         // Reference to the whiteboard element ID to save data back
         this.elementId = null;
 
@@ -184,6 +188,8 @@ class FluxPdfViewer {
             return;
         }
 
+        this.captureEditorFocus();
+
         // Remove focus from keyboard (markdown editor)
         if (document.activeElement) document.activeElement.blur();
 
@@ -247,9 +253,25 @@ class FluxPdfViewer {
         this.dom.overlay.classList.add('hidden');
         this.dom.pill.classList.remove('hidden');
         this.dom.bottomToolbar.classList.remove('hidden');
+
+        if (this.lastActiveEditor) {
+            const el = this.lastActiveEditor;
+            const start = this.lastCaretStart;
+            const end = this.lastCaretEnd;
+
+            const overlay = el.closest('.editor-overlay');
+            if (overlay && !overlay.classList.contains('hidden')) {
+                setTimeout(() => {
+                    el.focus();
+                    el.setSelectionRange(start, end);
+                }, 50);
+            }
+        }
     }
 
     restore() {
+        this.captureEditorFocus();
+
         if(this.dom.overlay.parentElement) {
             document.body.appendChild(this.dom.overlay);
         }
@@ -591,6 +613,17 @@ class FluxPdfViewer {
         this.state.minZoom = Math.min(this.dom.container.clientWidth / this.state.baseWidth, this.dom.container.clientHeight / this.state.baseHeight) * 0.95;
         if (this.state.zoom < this.state.minZoom) this.state.zoom = this.state.minZoom;
         this.clampTranslation(); this.applyTransform();
+    }
+
+    captureEditorFocus() {
+        const active = document.activeElement;
+        if (active && (active.id === 'md-input' || active.id === 'formula-input')) {
+            this.lastActiveEditor = active;
+            this.lastCaretStart = active.selectionStart;
+            this.lastCaretEnd = active.selectionEnd;
+        } else {
+            this.lastActiveEditor = null;
+        }
     }
 
     // --- TOUCH HANDLERS ---

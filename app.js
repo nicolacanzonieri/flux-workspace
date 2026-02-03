@@ -317,6 +317,9 @@ class FluxApp {
         this.dom.btnCloseFormula.addEventListener('click', () => this.saveAndCloseFormulaEditor());
         this.dom.latexBtns.forEach(btn => btn.addEventListener('click', (e) => { e.preventDefault(); this.handleLatexButton(btn.getAttribute('data-latex')); }));
         
+        this.enableTabSupport(this.dom.mdInput);
+        this.enableTabSupport(this.dom.formulaInput)
+
         // --- CUSTOM EVENTS ---
         this.dom.canvas.addEventListener('flux-doubleclick', (e) => {
              const el = e.detail.element;
@@ -649,6 +652,26 @@ class FluxApp {
         input.setRangeText(insertText);
         input.focus();
         input.setSelectionRange(start + cursorOffset, start + cursorOffset);
+    }
+
+    enableTabSupport(textarea) {
+        textarea.addEventListener('keydown', (e) => {
+            if (e.key === 'Tab') {
+                e.preventDefault(); // Impedisce di cambiare elemento (focus)
+                
+                const start = textarea.selectionStart;
+                const end = textarea.selectionEnd;
+
+                // Inserisce 4 spazi (standard per Markdown/LaTeX)
+                const tabSpaces = "    ";
+                textarea.value = textarea.value.substring(0, start) +
+                                tabSpaces +
+                                textarea.value.substring(end);
+
+                // Riposiziona il cursore dopo gli spazi inseriti
+                textarea.selectionStart = textarea.selectionEnd = start + tabSpaces.length;
+            }
+        });
     }
 
     // --- UI HELPERS ---
