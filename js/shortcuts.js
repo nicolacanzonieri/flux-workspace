@@ -76,6 +76,25 @@ document.addEventListener('keydown', (e) => {
         return;
     }
 
+    // Minimize/Restore PDF Viewer (Cmd/Ctrl + M)
+    if (isCmdOrCtrl && (e.key === 'm' || e.key === 'M')) {
+        e.preventDefault(); // Impedisce il comando di minimizzazione del browser/sistema
+        
+        if (app.pdfViewer && app.pdfViewer.pdfDoc) {
+            const isFullOpen = !app.pdfViewer.dom.overlay.classList.contains('hidden');
+            const isMinimized = !app.pdfViewer.dom.pill.classList.contains('hidden');
+
+            if (isFullOpen) {
+                // Se è aperto a tutto schermo, lo minimizziamo
+                app.pdfViewer.minimize();
+            } else if (isMinimized) {
+                // Se è già minimizzato (pillola visibile), lo ripristiniamo
+                app.pdfViewer.restore();
+            }
+        }
+        return;
+    }
+
     // --- 3. PDF VIEWER CONTEXT SHORTCUTS ---
     // These apply only when the PDF viewer overlay is visible.
     const isPdfOpen = app.pdfViewer && !app.pdfViewer.dom.overlay.classList.contains('hidden');
