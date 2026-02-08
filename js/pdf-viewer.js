@@ -239,6 +239,7 @@ class FluxPdfViewer {
         this.saveAnnotations();
         this.dom.overlay.classList.add('hidden');
         this.dom.pill.classList.add('hidden');
+        this.dom.bottomToolbar.classList.remove('hidden');
         
         // Cleanup
         this.pdfDoc = null;
